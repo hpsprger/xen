@@ -23,6 +23,23 @@
 #define __XEN_8250_UART_H__
 
 /* Register offsets */
+// 根据rk3399 适配后的的偏移值 
+#define UART_RBR          0x00    /* receive buffer       */
+#define UART_THR          0x00    /* transmit holding     */
+#define UART_IER          0x04    /* interrupt enable     */
+#define UART_IIR          0x08    /* interrupt identity   */
+#define UART_FCR          0x08    /* FIFO control         */
+#define UART_LCR          0x0C    /* line control         */
+#define UART_MCR          0x10    /* Modem control        */
+#define UART_LSR          0x14    /* line status          */
+#define UART_MSR          0x18    /* Modem status         */
+#define UART_USR          0x7C    /* Status register (DW) */
+#define UART_DLL          0x00    /* divisor latch (ls) (DLAB=1) */
+#define UART_DLM          0x01    /* divisor latch (ms) (DLAB=1) */
+#define UART_XR_EFR       0x09    /* Enhanced function register (Exar) */
+
+#if 0 // xen 原始的偏移值 
+/* Register offsets */
 #define UART_RBR          0x00    /* receive buffer       */
 #define UART_THR          0x00    /* transmit holding     */
 #define UART_IER          0x01    /* interrupt enable     */
@@ -36,6 +53,7 @@
 #define UART_DLL          0x00    /* divisor latch (ls) (DLAB=1) */
 #define UART_DLM          0x01    /* divisor latch (ms) (DLAB=1) */
 #define UART_XR_EFR       0x09    /* Enhanced function register (Exar) */
+#endif
 
 /* Interrupt Enable Register */
 #define UART_IER_ERDAI    0x01    /* rx data recv'd       */
