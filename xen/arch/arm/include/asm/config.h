@@ -118,8 +118,8 @@
 #else
 
 #define SLOT0_ENTRY_BITS  39
-#define SLOT0(slot) (_AT(vaddr_t,slot) << SLOT0_ENTRY_BITS)
-#define SLOT0_ENTRY_SIZE  SLOT0(1)
+#define SLOT0(slot) (_AT(vaddr_t,slot) << SLOT0_ENTRY_BITS)  // (slot << 39)
+#define SLOT0_ENTRY_SIZE  SLOT0(1) // (1 << 39)  ==> 0x8000000000 
 
 #define XEN_VIRT_START          (SLOT0(4) + _AT(vaddr_t, MB(2)))
 #endif
@@ -188,9 +188,9 @@
 #define FRAMETABLE_SIZE        GB(32)
 #define FRAMETABLE_NR          (FRAMETABLE_SIZE / sizeof(*frame_table))
 
-#define DIRECTMAP_VIRT_START   SLOT0(256)
-#define DIRECTMAP_SIZE         (SLOT0_ENTRY_SIZE * (266 - 256))
-#define DIRECTMAP_VIRT_END     (DIRECTMAP_VIRT_START + DIRECTMAP_SIZE - 1)
+#define DIRECTMAP_VIRT_START   SLOT0(256)                                  // (slot << 39) ==> 0x80_0000_0000
+#define DIRECTMAP_SIZE         (SLOT0_ENTRY_SIZE * (266 - 256))            // (0x80_0000_0000 * 10) ==> 0x500_0000_0000 
+#define DIRECTMAP_VIRT_END     (DIRECTMAP_VIRT_START + DIRECTMAP_SIZE - 1) // 0x80_0000_0000 + 0x500_0000_0000 -1 
 
 #define XENHEAP_VIRT_START     directmap_virt_start
 

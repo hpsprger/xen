@@ -1023,8 +1023,8 @@ static void __init setup_mm(void)
         ram_start = min(ram_start, bank->start);
         ram_end = max(ram_end, bank_end);
 
-        setup_directmap_mappings(PFN_DOWN(bank->start),
-                                 PFN_DOWN(bank->size));
+        setup_directmap_mappings(PFN_DOWN(bank->start),  // PFN_DOWN(bank->start) ==> VM 眼中的PFN ==> 对应hypervisor来说就是 MFN ==> 物理内存的起始地址 ==> PFN_DOWN 会将这个地址 右移 PAGE_SHIFT ==> 得到 MFN，也就是machine 的页框号，其实就是guest os 的 PFN，但是在 hypervisor的系统中，guost os 的PA 其实是一个IPA，所以为了避免误会，就用了 MFN来指代 VM 中认为 的 PFN
+                                 PFN_DOWN(bank->size));  // 物理内存的大小 ==> bank[0] bank[1] 里面存放的是 Dom0 的 物理内存的范围 ==> 欲意通过这个函数 将物理地址映射到虚拟地址空间去
     }
 
     total_pages += ram_size >> PAGE_SHIFT;

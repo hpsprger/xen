@@ -656,15 +656,15 @@ void __init setup_directmap_mappings(unsigned long base_mfn,
 }
 #else /* CONFIG_ARM_64 */
 /* Map the region in the directmap area. */
-void __init setup_directmap_mappings(unsigned long base_mfn,
-                                     unsigned long nr_mfns)
+void __init setup_directmap_mappings(unsigned long base_mfn, /* 物理内存的起始地址 */
+                                     unsigned long nr_mfns)  /* 物理内存的大小 */ 
 {
     int rc;
 
     /* First call sets the directmap physical and virtual offset. */
     if ( mfn_eq(directmap_mfn_start, INVALID_MFN) )
     {
-        unsigned long mfn_gb = base_mfn & ~((FIRST_SIZE >> PAGE_SHIFT) - 1);
+        unsigned long mfn_gb = base_mfn & ~((FIRST_SIZE >> PAGE_SHIFT) - 1); // 
 
         directmap_mfn_start = _mfn(base_mfn);
         directmap_base_pdx = mfn_to_pdx(_mfn(base_mfn));
@@ -1120,7 +1120,7 @@ static int xen_pt_update(unsigned long virt,
                          unsigned int flags)
 {
     int rc = 0;
-    unsigned long vfn = virt >> PAGE_SHIFT;
+    unsigned long vfn = virt >> PAGE_SHIFT; // 通过虚拟地址 算出 虚拟地址 对应的 虚拟页 的 编号 
     unsigned long left = nr_mfns;
 
     /*
@@ -1130,7 +1130,7 @@ static int xen_pt_update(unsigned long virt,
      *
      * XXX: Add a check.
      */
-    const mfn_t root = maddr_to_mfn(READ_SYSREG64(TTBR0_EL2));
+    const mfn_t root = maddr_to_mfn(READ_SYSREG64(TTBR0_EL2)); //TTBR0_EL2 是 hypervisor 的 页表基地址 ==> maddr to mfn: machine 的 地址(TTBR0_EL2中存放的应该是物理地址) 转换为 machine的页框号 
 
     /*
      * The hardware was configured to forbid mapping both writeable and

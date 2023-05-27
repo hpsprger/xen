@@ -289,6 +289,12 @@ static inline void *maddr_to_virt(paddr_t ma)
 #else
 static inline void *maddr_to_virt(paddr_t ma)
 {
+    // 这里挂了 
+    // ma = 0x1f756000  
+    // _mfn 的 定义 看 TYPE_SAFE(_type, _name) 这个宏 
+    // maddr_to_mfn(ma) ==> maddr_to_mfn(0x1f756000) ==> _mfn(paddr_to_pfn(0x1f756000)) ==> _mfn(0x1f756) ==> 最终返回的就是 0x1f756
+    // mfn_x 的 定义 看 TYPE_SAFE(_type, _name) 这个宏 
+    // mfn_to_pdx(xx) ==> pfn_to_pdx(mfn_x(mfn)) ==> pfn_to_pdx(mfn_x(mfn))
     ASSERT((mfn_to_pdx(maddr_to_mfn(ma)) - directmap_base_pdx) <
            (DIRECTMAP_SIZE >> PAGE_SHIFT));
     return (void *)(XENHEAP_VIRT_START -
