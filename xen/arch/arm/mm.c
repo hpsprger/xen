@@ -831,13 +831,15 @@ static int xen_pt_next_level(bool read_only, unsigned int level,
     // 一个虚拟地址，比如 0x800034a00000 
     entry = *table + offset;
 
-    if ( !lpae_is_valid(*entry) ) //判断该虚拟地址的当前该级的页表的entry是否已经被创建过，如果没有创建过的话就是无效的，那么就要先填充这个entry 
+    if ( !lpae_is_valid(*entry) ) //判断该虚拟地址的当前该级的页表的entry是否已经被填充过了，如果填充过了，也就是之前有某个虚拟地址映射时填充过这个页表，
+                                  //如果没有填充过的的话就是无效的，那么就要先填充这个entry ，也就是实现当前级页表对应的entry的填充
     {
         if ( read_only )
             return XEN_TABLE_MAP_FAILED;
 
         ret = create_xen_table(entry); // 某一级页表 的 这个entry 当前是没有被映射过的，也就是无效状态，那么就需要填充这个entry，
                                        // 填充的方法就是先申请一块4K的物理页，将这块物理页的页框号MFN 与 一些控制位信息 写入到这个entry 中来 就好了
+                                       // 这一级页表的对应entry已经被填充好了，就去填充下一级的页表的对应的entry，这样一级一级填充下去，直接几级页表全部更新填充好
         if ( ret )
             return XEN_TABLE_MAP_FAILED;
     }
@@ -851,6 +853,7 @@ static int xen_pt_next_level(bool read_only, unsigned int level,
     xen_unmap_table(*table);
     *table = xen_map_table(mfn); //因为这里mfn是4K页表内存块的物理页框号，CPU开启了MMU后，不能直接访问物理地址，所以这里通过 xen_map_table 将 mfn 映射到 
                                  // Fixmap虚拟地址空间来，得到虚拟地址，方便后续代码 通过这个虚拟地址 来填充 更新 这级页表的entry 
+                                 // 也即是将下一级待更新填充的页表4K物理内存块 对应的 虚拟地址 传出去，方便下一次进来 填充下一级页表 
     return XEN_TABLE_NORMAL_PAGE;
 }
 
