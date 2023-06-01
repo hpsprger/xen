@@ -771,7 +771,7 @@ static int create_xen_table(lpae_t *entry)
         mfn = page_to_mfn(pg);
     }
     else
-        mfn = alloc_boot_pages(1, 1); // 申请一个4K物理页，用来做页表(512个entry) 返回的是这个页的物理页框号mfn
+        mfn = alloc_boot_pages(1, 1); // 申请一个4K物理页，用来做页表(512个entry)，返回的是这个页的物理页框号mfn
 
     p = xen_map_table(mfn); //这里要映射这个mfn到虚拟地址空间，主要是为了得到一个虚拟地址p，然后下面通过这个虚拟地址p，执行clear_page(p)操作，然后就解映射了
                             //CPU要想正常能访问上面申请得到的物理页，就必须把这个物理页 映射到虚拟地址空间，因为CPU已经开启了MMU了，
@@ -787,12 +787,12 @@ static int create_xen_table(lpae_t *entry)
                             // xen_fixmap[511] ==> 0x200005ff000  ==> 512个entry * 4K = 2M 
                             // 4M-6M ==> Fixmap: special-purpose 4K mapping slots 0x20000400000 -- 0x200005fffff 
                             
-    clear_page(p);
+    clear_page(p); // 上面映射mfn得到虚拟地址p，就是为了这里能通过p来进行clear_page的操作，操作完了就直接unmap掉了
     xen_unmap_table(p);
 
-    pte = mfn_to_xen_entry(mfn, MT_NORMAL);
+    pte = mfn_to_xen_entry(mfn, MT_NORMAL); //构造一个pte entry, 里面包含有 前面申请到物理页的mfn号 与 一些属性信息 等 
     pte.pt.table = 1;
-    write_pte(entry, pte);
+    write_pte(entry, pte); // 将 pte 的值填充到 某级页表的这个entry，从而实现某级页表的该entry 被填充有效了，后续页表更新就不用再填充了，MMU可以直接用了
 
     return 0;
 }
@@ -846,11 +846,11 @@ static int xen_pt_next_level(bool read_only, unsigned int level,
     if ( lpae_is_mapping(*entry, level) )
         return XEN_TABLE_SUPER_PAGE;
 
-    mfn = lpae_get_mfn(*entry);
+    mfn = lpae_get_mfn(*entry); // 得到 当前级的页表的该entry 里面的 物理地址页框号mfn， 也就得到这个entry 的 下一级页表(4K页表内存块)的物理页的物理地址页框号
 
     xen_unmap_table(*table);
-    *table = xen_map_table(mfn);
-
+    *table = xen_map_table(mfn); //因为这里mfn是4K页表内存块的物理页框号，CPU开启了MMU后，不能直接访问物理地址，所以这里通过 xen_map_table 将 mfn 映射到 
+                                 // Fixmap虚拟地址空间来，得到虚拟地址，方便后续代码 通过这个虚拟地址 来填充 更新 这级页表的entry 
     return XEN_TABLE_NORMAL_PAGE;
 }
 
@@ -960,15 +960,27 @@ static int xen_pt_update_entry(mfn_t root, unsigned long virt,
     bool read_only = mfn_eq(mfn, INVALID_MFN) && !(flags & _PAGE_POPULATE);
     lpae_t pte, *entry;
 
+    // offset[x] 其实就是定义的一个数组：
+    // offset[0] ==>   VA: bit47 -- bit39  ==> 0级页表的index 
+    // offset[1] ==>   VA: bit38 -- bit30  ==> 1级页表的index
+    // offset[2] ==>   VA: bit29 -- bit21  ==> 2级页表的index
+    // offset[3] ==>   VA: bit20 -- bit12  ==> 3级页表的index
+    // 一个虚拟地址，比如 0x800034a00000 
     /* convenience aliases */
-    DECLARE_OFFSETS(offsets, (paddr_t)virt);
+    DECLARE_OFFSETS(offsets, (paddr_t)virt); 
 
     /* _PAGE_POPULATE and _PAGE_PRESENT should never be set together. */
     ASSERT((flags & (_PAGE_POPULATE|_PAGE_PRESENT)) != (_PAGE_POPULATE|_PAGE_PRESENT));
 
-    table = xen_map_table(root);
-    for ( level = HYP_PT_ROOT_LEVEL; level < target; level++ )
+    table = xen_map_table(root); // root 就是 TTBR0_EL2寄存器的值，TTBR0_EL2寄存器的值就是0级页表  boot_pgtable 的 4K物理页 的 起始物理地址
+                                 // xen_map_table(root) 就是将 boot_pgtable 的 4K物理页 的 起始物理地址 映射到 XEN 的 Fixmap虚拟地址空间来
+                                 // 得到虚拟地址，方便后续代码 通过这个虚拟地址 来填充 更新 这级页表的entry 
+                                 // CPU开启了MMU后，不能直接访问物理地址，所以这里通过 xen_map_table 将 mfn 映射到 虚拟地址空间
+    for ( level = HYP_PT_ROOT_LEVEL; level < target; level++ ) // HYP_PT_ROOT_LEVEL ==> arm64为从0开始 
     {
+        // 要映射一个虚拟地址，就要一级一级的进行页表更新，如果某一级页表 对应的entry 是有效的，也就是被填充过了，那么就不用再填充
+        // 如果没有填充过，就要先申请一块 4K物理内存块，将这个4K物理内存块的物理地址页框号 与 对应的属性信息填充到这级页表的对应的entry里面来 
+        // 从而实现该级页表的填充 
         rc = xen_pt_next_level(read_only, level, &table, offsets[level]);
         if ( rc == XEN_TABLE_MAP_FAILED )
         {
