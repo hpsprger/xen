@@ -119,7 +119,7 @@
 
 #define SLOT0_ENTRY_BITS  39
 #define SLOT0(slot) (_AT(vaddr_t,slot) << SLOT0_ENTRY_BITS)  // (slot << 39)
-#define SLOT0_ENTRY_SIZE  SLOT0(1) // (1 << 39)  ==> 0x8000000000 
+#define SLOT0_ENTRY_SIZE  SLOT0(1) // (1 << 39)  ==> 0x80 0000 0000 
 
 #define XEN_VIRT_START          (SLOT0(4) + _AT(vaddr_t, MB(2)))
 #endif

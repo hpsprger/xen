@@ -203,6 +203,7 @@ static void __init __maybe_unused build_assertions(void)
 #undef CHECK_DIFFERENT_SLOT
 }
 
+// 将物理地址mfn映射到虚拟地址空间去
 static lpae_t *xen_map_table(mfn_t mfn)
 {
     /*
@@ -656,8 +657,8 @@ void __init setup_directmap_mappings(unsigned long base_mfn,
 }
 #else /* CONFIG_ARM_64 */
 /* Map the region in the directmap area. */
-void __init setup_directmap_mappings(unsigned long base_mfn, /* 物理内存的起始地址 */
-                                     unsigned long nr_mfns)  /* 物理内存的大小 */ 
+void __init setup_directmap_mappings(unsigned long base_mfn, /* VM的物理内存的起始地址(GPA)的PFN就是MFN ==> 0x34a00 */ 
+                                     unsigned long nr_mfns)  /* 物理内存的大小 ==> 0x4b600 */ 
 {
     int rc;
 
@@ -666,8 +667,8 @@ void __init setup_directmap_mappings(unsigned long base_mfn, /* 物理内存的�
     {
         unsigned long mfn_gb = base_mfn & ~((FIRST_SIZE >> PAGE_SHIFT) - 1); // 
 
-        directmap_mfn_start = _mfn(base_mfn);
-        directmap_base_pdx = mfn_to_pdx(_mfn(base_mfn));
+        directmap_mfn_start = _mfn(base_mfn); // directmap_mfn_start 0x34a00
+        directmap_base_pdx = mfn_to_pdx(_mfn(base_mfn)); // 
         /*
          * The base address may not be aligned to the first level
          * size (e.g. 1GB when using 4KB pages). This would prevent
@@ -770,9 +771,22 @@ static int create_xen_table(lpae_t *entry)
         mfn = page_to_mfn(pg);
     }
     else
-        mfn = alloc_boot_pages(1, 1);
+        mfn = alloc_boot_pages(1, 1); // 申请一个4K物理页，用来做页表(512个entry) 返回的是这个页的物理页框号mfn
 
-    p = xen_map_table(mfn);
+    p = xen_map_table(mfn); //这里要映射这个mfn到虚拟地址空间，主要是为了得到一个虚拟地址p，然后下面通过这个虚拟地址p，执行clear_page(p)操作，然后就解映射了
+                            //CPU要想正常能访问上面申请得到的物理页，就必须把这个物理页 映射到虚拟地址空间，因为CPU已经开启了MMU了，
+                            //xen_map_table 这里就是将这个物理页mfn号 映射到 XEN 的   FIXMAP_VIRT_START 区域
+                            //xen_map_table里面会调用pmap_map, pmap_map 里面先找到一个可以用的slot【xen_fixmap的一个entry 就是一个slot，也就是一个物理页】   
+                            //pmap_map里面调用 arch_pmap_map ==> 通过slot找到一个entry ==> entry = &xen_fixmap[slot] 
+                            //因为  xen_fixmap 已经挂到了 boot_second 这级页表下了，所以 xen_fixmap数组的每一个entry 就是 对应一个4K的虚拟地址页
+                            //所以有了slot，也就找到了 entry【xen_fixmap[slot]】 , entry确定了，你的虚拟地址也就确定了，然后把mfn填充到这个entry里面即可
+                            // xen_fixmap[0]   ==> 0x20000400000 
+                            // xen_fixmap[1]   ==> 0x20000401000 
+                            // xen_fixmap[2]   ==> 0x20000402000 
+                            // ...
+                            // xen_fixmap[511] ==> 0x200005ff000  ==> 512个entry * 4K = 2M 
+                            // 4M-6M ==> Fixmap: special-purpose 4K mapping slots 0x20000400000 -- 0x200005fffff 
+                            
     clear_page(p);
     xen_unmap_table(p);
 
@@ -807,14 +821,23 @@ static int xen_pt_next_level(bool read_only, unsigned int level,
     int ret;
     mfn_t mfn;
 
+    // *table 就是指向当前待更新的那一级页表的内存页
+    // 注意: offset 的单位是 entry，所以这里 + offset ==> 地址实际要 + offset * sizeof(entry)【8字节】 
+    // offset[x] 其实就是前面定义的一个数组：
+    // offset[0] ==>   VA: bit47 -- bit39  ==> 0级页表的index 
+    // offset[1] ==>   VA: bit38 -- bit30  ==> 1级页表的index
+    // offset[2] ==>   VA: bit29 -- bit21  ==> 2级页表的index
+    // offset[3] ==>   VA: bit20 -- bit12  ==> 3级页表的index
+    // 一个虚拟地址，比如 0x800034a00000 
     entry = *table + offset;
 
-    if ( !lpae_is_valid(*entry) )
+    if ( !lpae_is_valid(*entry) ) //判断该虚拟地址的当前该级的页表的entry是否已经被创建过，如果没有创建过的话就是无效的，那么就要先填充这个entry 
     {
         if ( read_only )
             return XEN_TABLE_MAP_FAILED;
 
-        ret = create_xen_table(entry);
+        ret = create_xen_table(entry); // 某一级页表 的 这个entry 当前是没有被映射过的，也就是无效状态，那么就需要填充这个entry，
+                                       // 填充的方法就是先申请一块4K的物理页，将这块物理页的页框号MFN 与 一些控制位信息 写入到这个entry 中来 就好了
         if ( ret )
             return XEN_TABLE_MAP_FAILED;
     }

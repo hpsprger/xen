@@ -18,7 +18,7 @@
 /* Bitmap to track which slot is used */
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PMAP);
 
-void *__init pmap_map(mfn_t mfn)
+void *__init pmap_map(mfn_t mfn) // 将mfn 映射到 Fixmap虚拟地址空间
 {
     unsigned int idx;
     unsigned int slot;
@@ -32,7 +32,7 @@ void *__init pmap_map(mfn_t mfn)
 
     __set_bit(idx, inuse);
 
-    slot = idx + FIXMAP_PMAP_BEGIN;
+    slot = idx + FIXMAP_PMAP_BEGIN;  // #define FIXMAP_PMAP_BEGIN  66(0x42)  /* Start of PMAP */ ==> slot 这里固定从0x42开始
     ASSERT(slot >= FIXMAP_PMAP_BEGIN && slot <= FIXMAP_PMAP_END);
 
     /*
@@ -42,9 +42,18 @@ void *__init pmap_map(mfn_t mfn)
      * again, resulting in a loop. Modify the PTEs directly instead. The same
      * is true for pmap_unmap().
      */
-    arch_pmap_map(slot, mfn);
+    arch_pmap_map(slot, mfn); // 将 物理地址页框号mfn【待映射的物理i地址】映射到slot 对应的虚拟地址空间上来
 
-    return fix_to_virt(slot);
+    return fix_to_virt(slot); // slot号【也就是物理地址】 转换为虚拟地址 【物理地址存放在xen_fixmap[slot]这个页表中，xen_fixmap[x]就是pte了】
+                              // xen_fixmap[0]   ==> 0x20000400000 
+                              // xen_fixmap[1]   ==> 0x20000401000 
+                              // xen_fixmap[2]   ==> 0x20000402000 
+                              // ...
+                              // xen_fixmap[0x42]   ==> 0x20000442000 
+                              // xen_fixmap[0x43]   ==> 0x20000443000 
+                              // ...
+                              // xen_fixmap[511] ==> 0x200005ff000  ==> 512个entry * 4K = 2M 
+                              // 4M-6M ==> Fixmap: special-purpose 4K mapping slots 0x20000400000 -- 0x200005fffff 
 }
 
 void __init pmap_unmap(const void *p)
