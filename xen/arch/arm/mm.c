@@ -772,6 +772,25 @@ static int create_xen_table(lpae_t *entry)
     }
     else
         mfn = alloc_boot_pages(1, 1); // 申请一个4K物理页，用来做页表(512个entry)，返回的是这个页的物理页框号mfn
+                                      // 本次出故障时，如下调用栈，申请到一个mfn后(0x203FFFFF)，下面再映射给出p,给外面用这个虚拟地址p 对这个物理页进行清零操作
+                                      // 发现外面通过虚拟地址p对这个页一清零，硬件就挂了
+                                      // 分析下： 这次得到的mfn是 0x203FFFFF, 那么它对应的物理地址是 0x203FFFFF000
+                                      // 0x203FFFFF000  这个物理地址 是 linux DTS 的 内存节点 中描述的系统的物理内存 ==> reg = <0x0   0x34A00000   0x00 0x4B600000
+			                          //                                                                                    0x200 0x00000000   0x04 0x00000000>; /* 16G */
+                                      // 所以xen这里分配物理内存可以得到  0x203FFFFF000 这个起始虚拟地址的物理页 
+                                      // 但是qemu中 却只实现了从 0x20000000000 开始的 2G内存，所以XEN分配到的物理内存页，是不能访问的，导致系统挂了 
+                                      //  [RK3399_MEM]               =        { 0x0000000,        0x80000000 },  //2G的内存【可以理解为DDR 或 SRAM 都可以】
+                                      //  [RK3399_MEM1]              =        { 0x20000000000,    0x80000000 },  // 内存【可以理解为DDR 或 SRAM 都可以】
+                                      //  所以要修改qemu，适配 16G的内存 ==> [RK3399_MEM1] = { 0x20000000000,    0x400000000 },  // 内存【可以理解为DDR 或 SRAM 都可以】
+/* #0  create_xen_table (entry=entry@entry=0x20000442800) at arch/arm/mm.c:775
+#1  0x00000200002761d4 in xen_pt_next_level (read_only=read_only@entry=0x0, level=level@entry=0x0,  table=table@entry=0x20000317d70 <cpu0_boot_stack+32112>, offset=0x100) at arch/arm/mm.c:817
+#2  0x0000020000276544 in xen_pt_update_entry (root=..., virt=virt@entry=0x800034a00000, mfn=..., target=target@entry=0x2,  flags=flags@entry=0xaf) at arch/arm/mm.c:949
+#3  0x0000020000276a18 in xen_pt_update (virt=virt@entry=0x800034a00000, mfn=..., nr_mfns=nr_mfns@entry=0x4b600,  flags=flags@entry=0xaf) at arch/arm/mm.c:1180
+#4  0x0000020000276b70 in map_pages_to_xen (virt=0x800034a00000, mfn=..., nr_mfns=0x4b600, flags=flags@entry=0xaf)  at arch/arm/mm.c:1218
+#5  0x00000200002e04f8 in setup_directmap_mappings (base_mfn=<optimized out>, nr_mfns=<optimized out>) at arch/arm/mm.c:688
+#6  0x00000200002e2348 in setup_mm () at arch/arm/setup.c:1026
+#7  start_xen (boot_phys_offset=<optimized out>, fdt_paddr=0x34a00000) at arch/arm/setup.c:1119
+#8  0x00000200002001a4 in real_start () at arch/arm/arm64/head.S:330*/ 
 
     p = xen_map_table(mfn); //这里要映射这个mfn到虚拟地址空间，主要是为了得到一个虚拟地址p，然后下面通过这个虚拟地址p，执行clear_page(p)操作，然后就解映射了
                             //CPU要想正常能访问上面申请得到的物理页，就必须把这个物理页 映射到虚拟地址空间，因为CPU已经开启了MMU了，
