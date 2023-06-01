@@ -42,7 +42,8 @@ void *__init pmap_map(mfn_t mfn) // 将mfn 映射到 Fixmap虚拟地址空间
      * again, resulting in a loop. Modify the PTEs directly instead. The same
      * is true for pmap_unmap().
      */
-    arch_pmap_map(slot, mfn); // 将 物理地址页框号mfn【待映射的物理i地址】映射到slot 对应的虚拟地址空间上来
+    arch_pmap_map(slot, mfn); // slot 对应的是虚拟地址空间， mfn 就是物理地址的页框号 
+                              // 这里 将 物理地址页框号mfn【待映射的物理地址】映射到slot 对应的虚拟地址空间上来
 
     return fix_to_virt(slot); // slot号【也就是物理地址】 转换为虚拟地址 【物理地址存放在xen_fixmap[slot]这个页表中，xen_fixmap[x]就是pte了】
                               // xen_fixmap[0]   ==> 0x20000400000 
