@@ -1186,7 +1186,7 @@ static int xen_pt_update(unsigned long virt,
      * will be modified with this function.
      *
      * XXX: Add a check.
-     */
+     */   // p root ==>  {mfn = 0x1f756} ==> TTBR0_EL2 ==> 存放的是0级页表(boot_pgtable)的4K 物理页的物理基地址 ==> 0x1f756000
     const mfn_t root = maddr_to_mfn(READ_SYSREG64(TTBR0_EL2)); //TTBR0_EL2 是 hypervisor 的 页表基地址 ==> maddr to mfn: machine 的 地址(TTBR0_EL2中存放的应该是物理地址) 转换为 machine的页框号 
 
     /*
