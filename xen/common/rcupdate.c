@@ -215,7 +215,7 @@ void rcu_barrier(void)
         {
             n_cpus = num_online_cpus();
 
-            if ( atomic_cmpxchg(&pending_count, 0, n_cpus + 1) == 0 )
+            if ( atomic_cmpxchg(&pending_count, 0, n_cpus + 1) == 0 ) // 原子操作： 如果 pending_count 为 0 的 话，则 pending_count 值改为 n_cpus + 1
                 break;
 
             put_cpu_maps();
