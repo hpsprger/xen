@@ -268,7 +268,7 @@ static void __init allocate_memory_11(struct domain *d,
                                       struct kernel_info *kinfo)
 {
     const unsigned int min_low_order =
-        get_order_from_bytes(min_t(paddr_t, dom0_mem, MB(512)));
+        get_order_from_bytes(min_t(paddr_t, dom0_mem, MB(1024)));
     const unsigned int min_order = get_order_from_bytes(MB(4));
     struct page_info *pg;
     unsigned int order = get_allocation_size(kinfo->unassigned_mem);
