@@ -287,7 +287,8 @@ static inline void *maddr_to_virt(paddr_t ma)
     return (void *)(unsigned long) ma + XENHEAP_VIRT_START;
 }
 #else
-static inline void *maddr_to_virt(paddr_t ma)
+//static inline void *maddr_to_virt(paddr_t ma)
+static void *maddr_to_virt(paddr_t ma)
 {
     // 这里挂了 
     // ma = 0x1f756000  

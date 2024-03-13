@@ -1170,11 +1170,11 @@ static unsigned int xen_pt_check_contig(unsigned long vfn, mfn_t mfn,
 
 static DEFINE_SPINLOCK(xen_pt_lock);
 
-static int xen_pt_update(unsigned long virt,
+static int __attribute__((optimize("O0"))) xen_pt_update(unsigned long virt,
                          mfn_t mfn,
                          /* const on purpose as it is used for TLB flush */
                          const unsigned long nr_mfns,
-                         unsigned int flags)
+                         unsigned int flags) 
 {
     int rc = 0;
     unsigned long vfn = virt >> PAGE_SHIFT; // 通过虚拟地址 算出 虚拟地址 对应的 虚拟页 的 编号 
