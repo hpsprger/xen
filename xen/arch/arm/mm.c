@@ -730,6 +730,9 @@ void __init setup_frametable_mappings(paddr_t ps, paddr_t pe)
 
 void *__init arch_vmap_virt_end(void)
 {
+    /* VMAP_VIRT_START  ==>  (SLOT0(4) + GB(1)) ==> 2T + 1GB */
+    /* VMAP_VIRT_SIZE   GB(1) */
+    /* 返回 2T + 2GB */
     return (void *)(VMAP_VIRT_START + VMAP_VIRT_SIZE);
 }
 

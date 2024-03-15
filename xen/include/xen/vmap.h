@@ -35,6 +35,10 @@ static inline void iounmap(void __iomem *va)
 void *arch_vmap_virt_end(void);
 static inline void vm_init(void)
 {
+    /* VMAP_DEFAULT ==> 0 */
+    /* #define VMAP_VIRT_START  (SLOT0(4) + GB(1)) ==>  (2T + 1GB) */
+    /* arch_vmap_virt_end() ==> 2T + 2GB */
+    /* 所以入参为: vm_init_type(0, 2T+1GB, 2T+2GB) */
     vm_init_type(VMAP_DEFAULT, (void *)VMAP_VIRT_START, arch_vmap_virt_end());
 }
 

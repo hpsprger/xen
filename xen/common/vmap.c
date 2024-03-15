@@ -19,6 +19,7 @@ static unsigned int __read_mostly vm_end[VMAP_REGION_NR];
 /* lowest known clear bit in the bitmap */
 static unsigned int vm_low[VMAP_REGION_NR];
 
+//  入参为: vm_init_type(0, 2T+1GB, 2T+2GB) ==> 1GB的地址空间  0x40000000 */
 void __init vm_init_type(enum vmap_region type, void *start, void *end)
 {
     unsigned int i, nr;
@@ -29,15 +30,18 @@ void __init vm_init_type(enum vmap_region type, void *start, void *end)
 
     vm_base[type] = start;                        /* start=0x20040000000; end=0x20080000000 ==> vm_base[type]=0x20040000000;*/
     vm_end[type] = PFN_DOWN(end - start);         /* 4K页的数量【舍弃不足4K的部分】            ==> vm_end[type]=0x40000; */
-    vm_low[type]= PFN_UP((vm_end[type] + 7) / 8); /* vm_low[type]=0x8; */
+    vm_low[type]= PFN_UP((vm_end[type] + 7) / 8); /* PFN_UP(0x40007/8) ==>  PFN_UP(0x8000) ==> vm_low[type]=0x8 */
+                                                  /* vm_low[type]=0x8; */
                                                   /* (vm_end[type]+7)/8==>8的数量【不足8的部分,用一个完整8]   */
                                                   /* vm_end[type]是4K页的数量,这里加7再除8==>4K*8=32K==>就是32K块的数量(不足32K的取整用一个完整32K) */
                                                   /* (vm_end[type]+7)/8再通过PFN_UP处理,也就是右移12位==>32K*4K==>vm_low[type]就是128M块的数量 */
-    nr = PFN_UP((vm_low[type] + 7) / 8);          /* nr=1; (vm_low[type]+7)/8==>8的数量【不足8的部分,用一个完整8】 */
+    nr = PFN_UP((vm_low[type] + 7) / 8);          /* PFN_UP((0x8+7)/8) ==> PFN_UP(0xf) ==> nr=1 */
+                                                  /* nr=1; (vm_low[type]+7)/8==>8的数量【不足8的部分,用一个完整8】 */
                                                   /* vm_low[type]是128M块的数量,这里加7再除8==>128M*8=1G==>就是1G块的数量(不足1G的取整用一个完整1G块) */
                                                   /* (vm_low[type]+7)/8再通过PFN_UP处理,也就是右移12位==>1G*4K==>nr就是4T 块的数量 */
     vm_top[type] = nr * PAGE_SIZE * 8;            /* nr*4K*8==>块对齐的地方==>vm_top[type]=0x8000 */
 
+    /* vm_bitmap(type) ==> vm_base[type] ==> va = 0x20040000000 */
     for ( i = 0, va = (unsigned long)vm_bitmap(type); i < nr; ++i, va += PAGE_SIZE )
     {
         struct page_info *pg = alloc_domheap_page(NULL, 0);
