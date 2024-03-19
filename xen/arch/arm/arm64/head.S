@@ -290,9 +290,9 @@ real_start_efi:
         mov   x21, x0                /* x21 := DTB, physical address  */
 
         /* Find out where we are */
-        ldr   x0, =start
-        adr   x19, start             /* x19 := paddr (start) */
-        sub   x20, x19, x0           /* x20 := phys-offset */
+        ldr   x0, =start     /* qemu gdb 打印出来的值是:x0=0x20000200000 ==> cat xen-syms.map ==> 0x20000200000 T start ==>  参考文档<0:【vygd】head.s中start标号值的分析 & “Find out where we are”源码分析>*/
+        adr   x19, start     /* $x19=0x1f600000 ==> x19 := paddr (start) */
+        sub   x20, x19, x0   /* $x20 = 0xfffffe001f400000 ==> x20 := phys-offset   */
 
         /* Using the DTB in the .dtb section? */
 .ifnes CONFIG_DTB_FILE,""
@@ -393,18 +393,18 @@ ENDPROC(init_secondary)
  */
 check_cpu_mode:
         PRINT("- Current EL ")
-        mrs   x5, CurrentEL
+        mrs   x5, CurrentEL /* 读取当前CPU所处的异常等级。下面并打印出来 */
         print_reg x5
         PRINT(" -\r\n")
 
-        /* Are we in EL2 */
+        /* Are we in EL2 */  /* 这里会检测当前是否在EL2级别，如果不是的话，就跳到标号1处，进行异常退出了，看下下面的打印，XEN是一定要在EL2下运行的 */
         cmp   x5, #PSR_MODE_EL2t
         ccmp  x5, #PSR_MODE_EL2h, #0x4, ne
         b.ne  1f /* No */
         ret
 1:
         /* OK, we're boned. */
-        PRINT("- Xen must be entered in NS EL2 mode -\r\n")
+        PRINT("- Xen must be entered in NS EL2 mode -\r\n") /* 这里有提示，下面也有提示，不在EL2的话，就是uboot bootloader的事情了，让他们修改好，或者qemu没有开启EL2 */
         PRINT("- Please update the bootloader -\r\n")
         b fail
 ENDPROC(check_cpu_mode)
@@ -856,8 +856,8 @@ ENDPROC(switch_ttbr_id)
  * Clobbers x0 - x1
  */
 init_uart:
-        ldr   x23, =CONFIG_EARLY_UART_BASE_ADDRESS
-#ifdef CONFIG_EARLY_UART_INIT
+        ldr   x23, =CONFIG_EARLY_UART_BASE_ADDRESS /* =CONFIG_EARLY_UART_BASE_ADDRESS ==> 0x1f6007f8 */
+#ifdef CONFIG_EARLY_UART_INIT  /* 这个宏没有定义 */
         early_uart_init x23, 0
 #endif
         PRINT("- UART enabled -\r\n")

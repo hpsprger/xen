@@ -44,6 +44,7 @@ void __init vm_init_type(enum vmap_region type, void *start, void *end)
     /* vm_bitmap(type) ==> vm_base[type] ==> va = 0x20040000000 */
     for ( i = 0, va = (unsigned long)vm_bitmap(type); i < nr; ++i, va += PAGE_SIZE )
     {
+        // #define  alloc_domheap_page(d,f)   (alloc_domheap_pages(d,0,f))
         struct page_info *pg = alloc_domheap_page(NULL, 0);
 
         map_pages_to_xen(va, page_to_mfn(pg), 1, PAGE_HYPERVISOR);
