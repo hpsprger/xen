@@ -71,15 +71,16 @@ mm_printk(const char *fmt, ...) {}
  * Finally, if EARLY_PRINTK is enabled then xen_fixmap will be mapped
  * by the CPU once it has moved off the 1:1 mapping.
  */
-DEFINE_BOOT_PAGE_TABLE(boot_pgtable);
+DEFINE_BOOT_PAGE_TABLE(boot_pgtable); /* 创建一个页表 ==> 也就是定义了一个数组 ==> uint64_t boot_pgtable[512]; ==> 刚好4K一页 */
+
 #ifdef CONFIG_ARM_64
 DEFINE_BOOT_PAGE_TABLE(boot_first);
 DEFINE_BOOT_PAGE_TABLE(boot_first_id);
 #endif
-DEFINE_BOOT_PAGE_TABLE(boot_second_id);
-DEFINE_BOOT_PAGE_TABLE(boot_third_id);
-DEFINE_BOOT_PAGE_TABLE(boot_second);
-DEFINE_BOOT_PAGE_TABLE(boot_third);
+DEFINE_BOOT_PAGE_TABLE(boot_second_id);/* 创建一个页表 ==> 也就是定义了一个数组 ==> uint64_t boot_second_id[512]; ==> 刚好4K一页 */
+DEFINE_BOOT_PAGE_TABLE(boot_third_id); /* 创建一个页表 ==> 也就是定义了一个数组 ==> uint64_t boot_third_id[512]; ==> 刚好4K一页 */
+DEFINE_BOOT_PAGE_TABLE(boot_second);   /* 创建一个页表 ==> 也就是定义了一个数组 ==> uint64_t boot_second[512]; ==> 刚好4K一页 */
+DEFINE_BOOT_PAGE_TABLE(boot_third);    /* 创建一个页表 ==> 也就是定义了一个数组 ==> uint64_t boot_third[512]; ==> 刚好4K一页 */
 
 /* Main runtime page tables */
 

@@ -128,6 +128,7 @@
 .endm
 
 /* Load the physical address of a symbol into xb */
+/* x20 为链接地址 与 运行地址 之间的 offset，所有有了这个offset，那么就可以直接将符号的链接地址 算出对应的 运行时的物理地址了 */
 .macro load_paddr xb, sym
         ldr \xb, =\sym
         add \xb, \xb, x20
@@ -493,13 +494,13 @@ ENDPROC(cpu_init)
 /*
  * Macro to create a page table entry in \ptbl to \tbl
  *
- * ptbl:    table symbol where the entry will be created
- * tbl:     table symbol to point to
- * virt:    virtual address
- * lvl:     page-table level
- * tmp1:    scratch register
- * tmp2:    scratch register
- * tmp3:    scratch register
+ * ptbl:    table symbol where the entry will be created ==> 上级页表的地址 ==> ptbl 指向这级页表对应的数组 ==> uint64_t boot_pgtable[512] 
+ * tbl:     table symbol to point to ==> 下级页表的地址
+ * virt:    virtual address  ==> 待映射的虚拟地址 
+ * lvl:     page-table level ==> 指定是第几级页表
+ * tmp1:    scratch register ==> 临时要使用的寄存器
+ * tmp2:    scratch register ==> 临时要使用的寄存器
+ * tmp3:    scratch register ==> 临时要使用的寄存器
  *
  * Preserves \virt
  * Clobbers \tmp1, \tmp2, \tmp3
@@ -567,8 +568,8 @@ ENDPROC(cpu_init)
  */
 create_page_tables:
         /* Prepare the page-tables for mapping Xen */
-        ldr   x0, =XEN_VIRT_START
-        create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3
+        ldr   x0, =XEN_VIRT_START /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
+        create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3  /*  */
         create_table_entry boot_first, boot_second, x0, 1, x1, x2, x3
         create_table_entry boot_second, boot_third, x0, 2, x1, x2, x3
 

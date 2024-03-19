@@ -269,6 +269,8 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
  *  page-tables to be used after BSS is zeroed (typically they are only used
  *  in C).
  */
+/* XEN_PT_LPAE_ENTRIES ==> 是  (1U << 9 ) ==> 512 ==> 然后一般一个页表项是64位，即8字节 ==> 4K ==> 刚好一个物理页(要连续的物理地址空间来存放页表) */
+/* lpae_t ==> 就是一个union，总大小为 uint64_t ==> 也就是8个字节  */
 #define DEFINE_BOOT_PAGE_TABLE(name)                                          \
 lpae_t __aligned(PAGE_SIZE) __section(".data.page_aligned")                   \
     name[XEN_PT_LPAE_ENTRIES]
@@ -276,6 +278,7 @@ lpae_t __aligned(PAGE_SIZE) __section(".data.page_aligned")                   \
 #define DEFINE_PAGE_TABLES(name, nr)                    \
 lpae_t __aligned(PAGE_SIZE) name[XEN_PT_LPAE_ENTRIES * (nr)]
 
+/* 创建一个页表 ==> 其实也就是定义了一个  uint64_t 类型的数组 ==> uint64_t xxx_name[512]; ==> 刚好4K一页 */
 #define DEFINE_PAGE_TABLE(name) DEFINE_PAGE_TABLES(name, 1)
 
 #endif /* __ARM_LPAE_H__ */
