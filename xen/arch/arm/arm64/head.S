@@ -484,9 +484,35 @@ ENDPROC(cpu_init)
  * Macro to find the slot number at a given page-table level
  *
  * slot:     slot computed
- * virt:     virtual address
+ * virt:     virtual address ==> 要映射的虚拟地址 
  * lvl:      page-table level
  */
+/* UBFX <Rd>, <Rn>, #<lsb>, #<width> ==> unsigned int Rd = (Rn >> lsb) & ((1 << width) - 1); */
+/* ubfx  \slot, \virt, #XEN_PT_LEVEL_SHIFT(\lvl), #XEN_PT_LPAE_SHIFT ==>  */
+/* 《0:【vygd】XEN 宏 & 名词 解析【mfn pdx等】》 */
+/* #define XEN_PT_LEVEL_SHIFT(lvl)  ==>((3 - lvl) * 9 + 12) ==> 最终是这个东东！！！ */
+/*                                  ==> lvl:0 为 39 ==> 512G                       */
+/*                                  ==> lvl:1 为 30 ==> 1G                         */
+/*                                  ==> lvl:2 为 21 ==> 2M                         */
+/*                                  ==> lvl:3 为 12 ==> 4K                         */
+/* XEN_PT_LPAE_SHIFT ==> 9 ==> 9bit 就是512个entry的意思 ==> 每一级页表以512个entry(4K) 作为一级，后面的级别上 可能有多个4K页 */
+/* 
+ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_entry) ==>  |level2_entry0(4K or 512_entry)  ==>  |level3_entry0(4K or 512_entry)
+              |                                      |                                    |                                     | ...
+              |                                      |                                    |                                     |level3_entry511(4K or 512_entry)
+              |                                      |                                    | ...
+              |                                      |                                    |level2_entry512(4K or 512_entry)
+              |                                      |    ....
+              |                                      |level1_entry511(4K or 512_entry) ==> ...
+              |           ....
+              |level0_entry511(4K or 512_entry)  ==> |level1_entry0(4K or 512_entry) ==>  ...
+                                                     |    ....
+                                                     |level1_entry511(4K or 512_entry) ==>  ...
+*/
+/* lvl=0 ===> ubfx  \slot, \virt, #39, #9  ==> slot = (virt >> 39) & ((1 << 9) - 1) */
+/* lvl=1 ===> ubfx  \slot, \virt, #30, #9  ==> slot = (virt >> 30) & ((1 << 9) - 1) */
+/* lvl=2 ===> ubfx  \slot, \virt, #21, #9  ==> slot = (virt >> 21) & ((1 << 9) - 1) */
+/* lvl=3 ===> ubfx  \slot, \virt, #12, #9  ==> slot = (virt >> 12) & ((1 << 9) - 1) */
 .macro get_table_slot, slot, virt, lvl
         ubfx  \slot, \virt, #XEN_PT_LEVEL_SHIFT(\lvl), #XEN_PT_LPAE_SHIFT
 .endm

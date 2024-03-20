@@ -223,6 +223,7 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
 #define XEN_PT_LPAE_ENTRIES       LPAE_ENTRIES_GS(PAGE_SHIFT)
 #define XEN_PT_LPAE_ENTRY_MASK    LPAE_ENTRY_MASK_GS(PAGE_SHIFT)
 
+/* 《0:【vygd】XEN 宏 & 名词 解析【mfn pdx等】》 */
 #define XEN_PT_LEVEL_SHIFT(lvl)   LEVEL_SHIFT_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_ORDER(lvl)   LEVEL_ORDER_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_SIZE(lvl)    LEVEL_SIZE_GS(PAGE_SHIFT, lvl)
