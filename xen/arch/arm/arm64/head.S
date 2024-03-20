@@ -25,7 +25,7 @@
 #include <efi/efierr.h>
 #include <asm/arm64/efibind.h>
 
-#define PT_PT     0xf7f /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 */
+#define PT_PT     0xf7f /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 */ 
 #define PT_MEM    0xf7d /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=0 P=1 */
 #define PT_MEM_L3 0xf7f /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 */
 #define PT_DEV    0xe71 /* nG=1 AF=1 SH=10 AP=01 NS=1 ATTR=100 T=0 P=1 */
@@ -535,15 +535,39 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
  *
  * Note that all parameters using registers should be distinct.
  */
-.macro create_table_entry, ptbl, tbl, virt, lvl, tmp1, tmp2, tmp3
+ /* 
+    从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要一级一级的填充页表entry,那么这里填充的就是第lvl级页表(ptbl)的某个entry 
+    通过virt + get_table_slot ==> 可以知道 要操作的是 第lvl级页表的entry的idx 
+    这个entry里面要填充的内容：tbl的物理地址 + 对应的属性信息 ==> 存放在tmp3
+    最后将上面的填充内容 写到 第lvl级页表(ptbl 指向这个第lvl级页表的数组的起始地址) 的某个entry(提取virt的某域段)
+    然后后面逐级填充其他级别的页表 
+  */
+.macro create_table_entry, ptbl, tbl, virt, lvl, tmp1, tmp2, tmp3 
+        /* get_table_slot 这个宏里面有很详细的对页表的说明 */
+        /* get_table_slot 是找到 待映射的虚拟地址 在第lvl级页表的哪个entry ==> 结果存放在tmp1寄存器中 */
+        /* 共4级, tmp1的值 ==> 要映射virt这个虚拟地址，那么在第lvl级页表中，对应的entry的idx，这个idx就存放在 tmp1 寄存器中 ==> 这个idx就叫做slot  */
+        /* lvl=0 ===> ubfx  \slot, \virt, #39, #9  ==> slot = (virt >> 39) & ((1 << 9) - 1) */
+        /* lvl=1 ===> ubfx  \slot, \virt, #30, #9  ==> slot = (virt >> 30) & ((1 << 9) - 1) */
+        /* lvl=2 ===> ubfx  \slot, \virt, #21, #9  ==> slot = (virt >> 21) & ((1 << 9) - 1) */
+        /* lvl=3 ===> ubfx  \slot, \virt, #12, #9  ==> slot = (virt >> 12) & ((1 << 9) - 1) */        
         get_table_slot \tmp1, \virt, \lvl   /* \tmp1 := slot in \tlb */
 
+        /* load_paddr是得到符号的运行时的物理地址，方法是将符号的链接+offset ==> 运行时的phy_addr ==> offset是start起始阶段已经计算好的 链接地址与物理地址之间的偏移 */
+        /* tmp2 中存放 tbl 这个符号的 运行时的物理地址 */
         load_paddr \tmp2, \tbl
+
+        /* #define PT_PT     0xf7f ==>  nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 ==>  也就是页表属性  */
         mov   \tmp3, #PT_PT                 /* \tmp3 := right for linear PT */
+        /* ORR <Xd>, <Xn>, <Xm> ==>  Xd = Xn | Xm;  ==> 这些数据是后续 要填充到 对于级别页表的某个entry中去的 */
+        /* tmp3寄存器里面存放的就是该页表的某个entry 要填充的内容 ==> 这个entry要填充的内容中 包含有 下级页表的物理地址, 也就是 tlb paddr，以及对应的属性信息 */
         orr   \tmp3, \tmp3, \tmp2           /*          + \tlb paddr */
-
+        /* qemu 看真实的指令，发现下面指令最终用了两条指令来实现adr_l想要的功能 */
+        /* 1： adrp x2, ptbl ==> 得到 ptbl 运行时 进行4K页对齐后的地址 ==> 0x1f6bb000 */
+        /* 2： add  x2, x2, #0x0 ==> 0x0 就是 你要拿的那个符号在这个4K页里面存放时先对页起始地址的偏移，这里偏移就是0 ==> 用这个方法来实现将某个全局变量的运行时的地址加载到寄存器中去  */
+        /* tmp2 ==> 这个寄存器里面最终存放的就是 ptbl 这个符号的 运行时的物理地址  */
         adr_l \tmp2, \ptbl
-
+        /* tmp3寄存器里面存放的就是该页表的某个entry的内容了 ==> 将这些内容写到该级页表对应的entry的内存中去 */
+        /* tmp1 就是这级页表的entry的索引值idx, 也叫做slot,因为一个entry是8个字节，64位，所以这里左了3位，也就是 x8，就得到了idx对应的这个entry的偏移地址了 */
         str   \tmp3, [\tmp2, \tmp1, lsl #3]
 .endm
 
@@ -594,10 +618,14 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
  */
 create_page_tables:
         /* Prepare the page-tables for mapping Xen */
-        ldr   x0, =XEN_VIRT_START /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
-        create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3  /*  */
-        create_table_entry boot_first, boot_second, x0, 1, x1, x2, x3
-        create_table_entry boot_second, boot_third, x0, 2, x1, x2, x3
+        /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
+        ldr x0, =XEN_VIRT_START 
+        /* x0 为要映射的虚拟地址  */
+        /* 0 ==> 第0级页表 */
+        /* x1, x2, x3 ==> 为过程中要用到的中间寄存器 */
+        create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3   
+        create_table_entry boot_first, boot_second,  x0, 1, x1, x2, x3
+        create_table_entry boot_second, boot_third,  x0, 2, x1, x2, x3
 
         /* Map Xen */
         adr_l x4, boot_third
