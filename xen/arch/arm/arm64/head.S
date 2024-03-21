@@ -627,11 +627,21 @@ create_page_tables:
         /* Prepare the page-tables for mapping Xen */
         /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
         ldr x0, =XEN_VIRT_START 
+
         /* x0 为要映射的虚拟地址  */
         /* 0 ==> 第0级页表 */
-        /* x1, x2, x3 ==> 为过程中要用到的中间寄存器 */
+        /* 
+                create_table_entry
+                从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要逐级填充各级页表的对应的entry 
+                ==> 那么这里就是通过lvl来指定要填充的是第几级页表，ptbl指向这个要被填充的页表基地址，
+                ==> 然后通过虚拟地址virt来索引该级页表的对应的entry
+                ==> 这个entry中要填充 下一级页表的物理基地址(tbl) 以及相关的页表属性 
+        */
+        /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第0级页表(boot_pgtable)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_first) + 一些基本属性  */
         create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3   
+        /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第1级页表(boot_first)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_second) + 一些基本属性  */
         create_table_entry boot_first, boot_second,  x0, 1, x1, x2, x3
+        /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第1级页表(boot_second)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_third) + 一些基本属性  */
         create_table_entry boot_second, boot_third,  x0, 2, x1, x2, x3
 
         /* Map Xen */
