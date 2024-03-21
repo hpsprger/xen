@@ -224,16 +224,45 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
 #define XEN_PT_LPAE_ENTRY_MASK    LPAE_ENTRY_MASK_GS(PAGE_SHIFT)
 
 /* 《0:【vygd】XEN 宏 & 名词 解析【mfn pdx等】》 */
+/*
+
+#define XEN_PT_LEVEL_SHIFT(lvl)  
+                              ==>((3 - lvl) * 9 + 12) ==> 最终是这个东东！！！
+                              ==> lvl:0 为 39 ==> 512G      
+                              ==> lvl:1 为 30 ==> 1G    
+                              ==> lvl:2 为 21 ==> 2M    
+                              ==> lvl:3 为 12 ==> 4K 
+
+#define XEN_PT_LEVEL_ORDER(lvl) 
+                              ==> ((3 - (lvl)) * 9)
+                              ==> lvl:0 为 27        
+                              ==> lvl:1 为 18
+                              ==> lvl:2 为 9
+                              ==> lvl:3 为 0
+
+#define XEN_PT_LEVEL_SIZE(lvl) 
+         ==> ((paddr_t)1 << (((3 - lvl) * 9) + 12))
+         ==> lvl:0 为  ((paddr_t)1 << 39) ==> 512G              
+         ==> lvl:1 为  ((paddr_t)1 << 30) ==> 1G    
+         ==> lvl:2 为  ((paddr_t)1 << 21) ==> 2M
+         ==> lvl:3 为  ((paddr_t)1 << 12) ==> 4K  
+
+#define XEN_PT_LEVEL_MASK(lvl)  
+         ==> lvl:0 为  0x7FFFFFFFFF              
+         ==> lvl:1 为  0x3FFFFFFF    
+         ==> lvl:2 为  0x1FFFFF 
+         ==> lvl:3 为  0xFFF 
+*/
 #define XEN_PT_LEVEL_SHIFT(lvl)   LEVEL_SHIFT_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_ORDER(lvl)   LEVEL_ORDER_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_SIZE(lvl)    LEVEL_SIZE_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_MASK(lvl)    (~(XEN_PT_LEVEL_SIZE(lvl) - 1))
 
 /* Convenience aliases */
-#define THIRD_SHIFT         XEN_PT_LEVEL_SHIFT(3)
-#define THIRD_ORDER         XEN_PT_LEVEL_ORDER(3)
-#define THIRD_SIZE          XEN_PT_LEVEL_SIZE(3)
-#define THIRD_MASK          XEN_PT_LEVEL_MASK(3)
+#define THIRD_SHIFT         XEN_PT_LEVEL_SHIFT(3) //12
+#define THIRD_ORDER         XEN_PT_LEVEL_ORDER(3) //0
+#define THIRD_SIZE          XEN_PT_LEVEL_SIZE(3)  //4K
+#define THIRD_MASK          XEN_PT_LEVEL_MASK(3)  //0xFFF
 
 #define SECOND_SHIFT        XEN_PT_LEVEL_SHIFT(2)
 #define SECOND_ORDER        XEN_PT_LEVEL_ORDER(2)

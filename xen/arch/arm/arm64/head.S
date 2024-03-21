@@ -497,9 +497,9 @@ ENDPROC(cpu_init)
 /*                                  ==> lvl:3 为 12 ==> 4K                         */
 /* XEN_PT_LPAE_SHIFT ==> 9 ==> 9bit 就是512个entry的意思 ==> 每一级页表以512个entry(4K) 作为一级，后面的级别上 可能有多个4K页 */
 /* 
-ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_entry) ==>  |level2_entry0(4K or 512_entry)  ==>  |level3_entry0(4K or 512_entry)
+ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_entry) ==>  |level2_entry0(4K or 512_entry)  ==>  |level3_entry0(4K or 512_entry) ==> include start paddr of 4K page 
               |                                      |                                    |                                     | ...
-              |                                      |                                    |                                     |level3_entry511(4K or 512_entry)
+              |                                      |                                    |                                     |level3_entry511(4K or 512_entry) ==> include start paddr of 4K page 
               |                                      |                                    | ...
               |                                      |                                    |level2_entry512(4K or 512_entry)
               |                                      |    ....
@@ -638,21 +638,52 @@ create_page_tables:
         create_table_entry boot_pgtable, boot_first, x0, 0, x1, x2, x3   
         /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第1级页表(boot_first)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_second) + 一些基本属性  */
         create_table_entry boot_first, boot_second,  x0, 1, x1, x2, x3
-        /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第1级页表(boot_second)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_third) + 一些基本属性  */
+        /* 为映射虚拟地址x0(XEN_VIRT_START), 这里先填充第2级页表(boot_second)的 对应的entry ==> 填充内容包含下一级页表的物理基地址(boot_third) + 一些基本属性  */
         create_table_entry boot_second, boot_third,  x0, 2, x1, x2, x3
 
+        /* 9 + 9 + 9 + 12 ==> 4级页表 ==> 最后一级在下面填写 */
+        /* 下面的图 在create_table_entry宏中也有画与有更详细的解析 */
+/* 
+ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_entry) ==>  |level2_entry0(4K or 512_entry)  ==>  |level3_entry0(4K or 512_entry) ==> include start paddr of 4K page 
+              |                                      |                                    |                                     | ...
+              |                                      |                                    |                                     |level3_entry511(4K or 512_entry) ==> include start paddr of 4K page 
+              |                                      |                                    | ...
+              |                                      |                                    |level2_entry512(4K or 512_entry)
+              |                                      |    ....
+              |                                      |level1_entry511(4K or 512_entry) ==> ...
+              |           ....
+              |level0_entry511(4K or 512_entry)  ==> |level1_entry0(4K or 512_entry) ==>  ...
+                                                     |    ....
+                                                     |level1_entry511(4K or 512_entry) ==>  ...
+*/
+
+
         /* Map Xen */
+        /* 通过反汇编看，adr_l 也是用 adrp + add的方式来实现的 */
+        /* adrp x4,xxxx */
+        /* add  x4,x4,#0x0 ==> 最终x4 = 0x1f6c1000 ==> boot_third 运行时的物理地址就是0x1f6c1000 ==> 也就是找到了第三级页表的起始物理地址  */
         adr_l x4, boot_third
 
-        lsr   x2, x19, #THIRD_SHIFT  /* Base address for 4K mapping */
-        lsl   x2, x2, #THIRD_SHIFT
+        /* Logical Shift Right ==> THIRD_SHIFT 是 12 */
+        /* x19是调用这个函数之前，就设置好值了 ==>  adr  x19, start  /* $x19=0x1f600000 ==> x19 := paddr (start) */ */
+        /* start符号的运行时的物理地址 存放在 x19 中 */
+        lsr   x2, x19, #THIRD_SHIFT  /* Base address for 4K mapping ==> x2 = x19 >> 12 = 0x1f600 */
+        /* Logical Shift Left ==> x2 = x2 << 12 = 0x1f600000  */
+        lsl   x2, x2, #THIRD_SHIFT 
+        /* #define PT_MEM_L3 0xf7f /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 */ ==> 属性值 */
         mov   x3, #PT_MEM_L3         /* x2 := Section map */
+        /*  ORR <Xd>, <Xn>, <Xm> ==>  Xd = Xn | Xm;  */
+        /* x2 = x2 | x3 ==>  0x1f600000 | 0xf7f = 0x1f600f7f ==> 这个就是页表entry里面要填充的内容 */
         orr   x2, x2, x3
 
         /* ... map of vaddr(start) in boot_third */
+        /* XZR 64 bits 31 Zero register */
         mov   x1, xzr
+        /* 将上面填充好的表项的内容(x2) 填充到 第三级页表的第0个entry 中去 */
 1:      str   x2, [x4, x1]           /* Map vaddr(start) */
+        /* #define PAGE_SIZE   (_AC(1,L) << PAGE_SHIFT) */
         add   x2, x2, #PAGE_SIZE     /* Next page */
+        /* x1 + 8 ==> 就是 第三级页表的 下一个entry的偏移地址 ==> 因为一个entry 8个字节  */
         add   x1, x1, #8             /* Next slot */
         cmp   x1, #(XEN_PT_LPAE_ENTRIES<<3) /* 512 entries per page */
         b.lt  1b
