@@ -575,7 +575,7 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
         /* tmp3寄存器里面存放的就是该页表的某个entry 要填充的内容 ==> 这个entry要填充的内容中 包含有 下级页表的物理地址, 也就是 tlb paddr，以及对应的属性信息 */
         orr   \tmp3, \tmp3, \tmp2           /*          + \tlb paddr */
         /* qemu 看真实的指令，发现下面指令最终用了两条指令来实现adr_l想要的功能 */
-        /* 1： adrp x2, ptbl ==> 得到 ptbl 运行时 进行4K页对齐后的地址 ==> 0x1f6bb000 */
+        /* 1： adrp x2, ptbl ==> 得到 ptbl 运行时 进行4K页对齐后的物理地址 ==> 比如这里调试对应的是 0x1f6bb000 */
         /* 2： add  x2, x2, #0x0 ==> 0x0 就是 你要拿的那个符号在这个4K页里面存放时先对页起始地址的偏移，这里偏移就是0 ==> 用这个方法来实现将某个全局变量的运行时的地址加载到寄存器中去  */
         /* tmp2 ==> 这个寄存器里面最终存放的就是 ptbl 这个符号的 运行时的物理地址  */
         adr_l \tmp2, \ptbl
@@ -602,15 +602,31 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
  * Note that all parameters using registers should be distinct.
  */
 .macro create_mapping_entry, ptbl, virt, phys, tmp1, tmp2, tmp3, type=PT_MEM_L3
+        /* #define THIRD_MASK  ==> 0xfffffffffffff000 */
+        /* and ==> 与操作 ==> phys & 0xfffffffffffff000  ==> 就是4K对齐后的地址 存放在tmp3 中 */
         and   \tmp3, \phys, #THIRD_MASK     /* \tmp3 := PAGE_ALIGNED(phys) */
 
+        /* lvl=0 ===> ubfx  \slot, \virt, #39, #9  ==> slot = (virt >> 39) & ((1 << 9) - 1) */
+        /* lvl=1 ===> ubfx  \slot, \virt, #30, #9  ==> slot = (virt >> 30) & ((1 << 9) - 1) */
+        /* lvl=2 ===> ubfx  \slot, \virt, #21, #9  ==> slot = (virt >> 21) & ((1 << 9) - 1) */
+        /* lvl=3 ===> ubfx  \slot, \virt, #12, #9  ==> slot = (virt >> 12) & ((1 << 9) - 1) */
+        /* .macro get_table_slot, slot, virt, lvl */
+        /* tmp1 = (virt >> 12) & 0x1ff ==> 取 4K以上的 9bit */
         get_table_slot \tmp1, \virt, 3      /* \tmp1 := slot in \tlb */
 
+        /* 下面就是做配置 页表的entry的填充内存 */
+        /* #define PT_MEM_L3 0xf7f ==> nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1  */
+        /* 填充内容 = 属性信息 + phys的4K对齐后的物理地址 */
         mov   \tmp2, #\type                 /* \tmp2 := right for section PT */
         orr   \tmp2, \tmp2, \tmp3           /*          + PAGE_ALIGNED(phys) */
-
+        /* 下面的解析是直接拷贝了上面的，因为都是adr_l伪指令 */
+        /* qemu 看真实的指令，发现下面指令最终用了两条指令来实现adr_l想要的功能 */
+        /* 1： adrp x2, ptbl ==> 得到 ptbl 运行时 进行4K页对齐后的物理地址 ==> 比如这里调试对应的是 0x1f6bb000 */
+        /* 2： add  x2, x2, #0x0 ==> 0x0 就是 你要拿的那个符号在这个4K页里面存放时先对页起始地址的偏移，这里偏移就是0 ==> 用这个方法来实现将某个全局变量的运行时的地址加载到寄存器中去  */
+        /* tmp3 ==> 这个寄存器里面最终存放的就是 ptbl 这个符号的 运行时的物理地址  */
         adr_l \tmp3, \ptbl
-
+        /* 将entry 的填充内容写到 对应的 entry 里面去， tmp1为 entry 的 idx, 一个entry 8个字节  */
+        /* 所以这里起始就是配置了第3级页表，这个页表里面的entry 保护了一个 物理页的起始物理地址，也就是指向了这个物理页  */
         str   \tmp2, [\tmp3, \tmp1, lsl #3]
 .endm
 

@@ -258,10 +258,10 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
          ==> lvl:3 为  ((paddr_t)1 << 12) ==> 4K  
 
 #define XEN_PT_LEVEL_MASK(lvl)  
-         ==> lvl:0 为  0x7FFFFFFFFF              
-         ==> lvl:1 为  0x3FFFFFFF    
-         ==> lvl:2 为  0x1FFFFF 
-         ==> lvl:3 为  0xFFF 
+         ==> lvl:0 为  ~(0x7FFFFFFFFF) ==> 0xffffff8000000000             
+         ==> lvl:1 为  ~(0x3FFFFFFF)   ==> 0xffffffffC0000000       
+         ==> lvl:2 为  ~(0x1FFFFF)     ==> 0xffffffffffe00000            
+         ==> lvl:3 为  ~(0xFFF)        ==> 0xfffffffffffff000            
 */
 #define XEN_PT_LEVEL_SHIFT(lvl)   LEVEL_SHIFT_GS(PAGE_SHIFT, lvl)
 #define XEN_PT_LEVEL_ORDER(lvl)   LEVEL_ORDER_GS(PAGE_SHIFT, lvl)
@@ -272,22 +272,22 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
 #define THIRD_SHIFT         XEN_PT_LEVEL_SHIFT(3) //12
 #define THIRD_ORDER         XEN_PT_LEVEL_ORDER(3) //0
 #define THIRD_SIZE          XEN_PT_LEVEL_SIZE(3)  //4K
-#define THIRD_MASK          XEN_PT_LEVEL_MASK(3)  //0xFFF
+#define THIRD_MASK          XEN_PT_LEVEL_MASK(3)  //0xfffffffffffff000
 
 #define SECOND_SHIFT        XEN_PT_LEVEL_SHIFT(2)
 #define SECOND_ORDER        XEN_PT_LEVEL_ORDER(2)
 #define SECOND_SIZE         XEN_PT_LEVEL_SIZE(2)
-#define SECOND_MASK         XEN_PT_LEVEL_MASK(2)
+#define SECOND_MASK         XEN_PT_LEVEL_MASK(2) //0xffffffffffe00000
 
 #define FIRST_SHIFT         XEN_PT_LEVEL_SHIFT(1)
 #define FIRST_ORDER         XEN_PT_LEVEL_ORDER(1)
 #define FIRST_SIZE          XEN_PT_LEVEL_SIZE(1)
-#define FIRST_MASK          XEN_PT_LEVEL_MASK(1)
+#define FIRST_MASK          XEN_PT_LEVEL_MASK(1) //0xffffffffC0000000
 
 #define ZEROETH_SHIFT       XEN_PT_LEVEL_SHIFT(0) /* XEN_PT_LEVEL_SHIFT(0) ==> 39 */
 #define ZEROETH_ORDER       XEN_PT_LEVEL_ORDER(0)
 #define ZEROETH_SIZE        XEN_PT_LEVEL_SIZE(0)
-#define ZEROETH_MASK        XEN_PT_LEVEL_MASK(0)
+#define ZEROETH_MASK        XEN_PT_LEVEL_MASK(0) //0xffffff8000000000
 
 /* Calculate the offsets into the pagetables for a given VA */
 #define zeroeth_linear_offset(va) ((va) >> ZEROETH_SHIFT)
