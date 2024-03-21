@@ -218,9 +218,19 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
  * However Xen only supports 16GB of RAM on 32-bit ARM systems and
  * therefore 39-bits are sufficient.
  */
-
 #define XEN_PT_LPAE_SHIFT         LPAE_SHIFT_GS(PAGE_SHIFT)
+/* XEN_PT_LPAE_ENTRIES ==> 是  (1U << 9 ) ==> 512 */
 #define XEN_PT_LPAE_ENTRIES       LPAE_ENTRIES_GS(PAGE_SHIFT)
+
+/* #define LPAE_ENTRY_MASK_GS(gs)    (LPAE_ENTRIES_GS(gs) - 1) */
+/* #define LPAE_ENTRIES_GS(gs)       (_AC(1, U) << LPAE_SHIFT_GS(gs)) */
+/* #define LPAE_SHIFT_GS(gs)         ((gs) - 3) */
+/* XEN_PT_LPAE_ENTRY_MASK  ==>  (LPAE_ENTRIES_GS(PAGE_SHIFT) - 1)*/
+/*                         ==>  (LPAE_ENTRIES_GS(12) - 1) */
+/*                         ==>  ((_AC(1, U) << LPAE_SHIFT_GS(12)) - 1) */
+/*                         ==>  ((_AC(1, U) << ((12) - 3)) - 1) */
+/*                         ==>  ((1 << 9 - 1) */
+/*                         ==>  0x1ff */
 #define XEN_PT_LPAE_ENTRY_MASK    LPAE_ENTRY_MASK_GS(PAGE_SHIFT)
 
 /* 《0:【vygd】XEN 宏 & 名词 解析【mfn pdx等】》 */
@@ -274,7 +284,7 @@ lpae_t mfn_to_xen_entry(mfn_t mfn, unsigned int attr);
 #define FIRST_SIZE          XEN_PT_LEVEL_SIZE(1)
 #define FIRST_MASK          XEN_PT_LEVEL_MASK(1)
 
-#define ZEROETH_SHIFT       XEN_PT_LEVEL_SHIFT(0)
+#define ZEROETH_SHIFT       XEN_PT_LEVEL_SHIFT(0) /* XEN_PT_LEVEL_SHIFT(0) ==> 39 */
 #define ZEROETH_ORDER       XEN_PT_LEVEL_ORDER(0)
 #define ZEROETH_SIZE        XEN_PT_LEVEL_SIZE(0)
 #define ZEROETH_MASK        XEN_PT_LEVEL_MASK(0)

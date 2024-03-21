@@ -32,6 +32,16 @@
 #define PT_DEV_L3 0xe73 /* nG=1 AF=1 SH=10 AP=01 NS=1 ATTR=100 T=1 P=1 */
 
 /* Convenience defines to get slot used by Xen mapping. */
+/* #define zeroeth_table_offset(va)  TABLE_OFFSET(zeroeth_linear_offset(va))  */
+/* #define zeroeth_linear_offset(va) ((va) >> ZEROETH_SHIFT) */
+/* #define TABLE_OFFSET(offs) (_AT(unsigned int, offs) & XEN_PT_LPAE_ENTRY_MASK) */
+/* XEN_ZEROETH_SLOT ==> zeroeth_table_offset(0x20000200000)  */
+/*                  ==> TABLE_OFFSET(zeroeth_linear_offset(0x20000200000)) */
+/*                  ==> TABLE_OFFSET((0x20000200000 >> 39)) */
+/*                  ==> TABLE_OFFSET(4)                     */
+/*                  ==> (_AT(unsigned int, 4) & XEN_PT_LPAE_ENTRY_MASK)*/
+/*                  ==> (4 & XEN_PT_LPAE_ENTRY_MASK) */
+/*                  ==> (4 & 0x1ff) ==> XEN_ZEROETH_SLOT = 4 */
 #define XEN_ZEROETH_SLOT    zeroeth_table_offset(XEN_VIRT_START)
 #define XEN_FIRST_SLOT      first_table_offset(XEN_VIRT_START)
 #define XEN_SECOND_SLOT     second_table_offset(XEN_VIRT_START)
@@ -622,12 +632,20 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
 create_page_tables:
         /* Prepare the page-tables for mapping Xen */
         /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
+        /* 下面是一条伪指令，qemu看实际的汇编指令，发现是用一条 ldr x0,0x1f600840 指令替换的，当然这条指令的 0x1f600840 是gdb加工后的结果 */
+        /* ldr x0,0x1f600840 ==> 真实的ldr指令就是加载指定的地址上的内存数据到目的寄存器 ==> 这里加载 0x1f600840 上的数据 到 x0  */
+        /* x0 = 0x20000200000  */
+        /* p /x $x0 ==> x0 = 0x20000200000 */
+        /* 
+            其实这里也就是满足了下面的伪指令的功能，下面的伪指令，ldr x0,=XEN_VIRT_START, 有个=号，就表示要加载这个符号的编译链接时的链接地址，
+            链接地址在这里也就是虚拟地址了，加载这个链接地址到x0，用做下面的虚拟地址 进行映射
+        */
         ldr x0, =XEN_VIRT_START 
 
         /* x0 为要映射的虚拟地址  */
         /* 0 ==> 第0级页表 */
         /* x1, x2, x3 ==> 为过程中要用到的中间寄存器 */
-                /* 
+        /* 
                 create_table_entry
                 从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要逐级填充各级页表的对应的entry 
                 ==> 那么这里就是通过lvl来指定要填充的是第几级页表，ptbl指向这个要被填充的页表基地址，
@@ -661,31 +679,43 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
         /* Map Xen */
         /* 通过反汇编看，adr_l 也是用 adrp + add的方式来实现的 */
         /* adrp x4,xxxx */
-        /* add  x4,x4,#0x0 ==> 最终x4 = 0x1f6c1000 ==> boot_third 运行时的物理地址就是0x1f6c1000 ==> 也就是找到了第三级页表的起始物理地址  */
+        /* add  x4,x4,#0x0 ==> 最终x4 = 0x1f6c1000 ==> boot_third 运行时的物理地址就是 0x1f6c1000 ==> 也就是找到了第三级页表的起始物理地址  */
         adr_l x4, boot_third
 
         /* Logical Shift Right ==> THIRD_SHIFT 是 12 */
-        /* x19是调用这个函数之前，就设置好值了 ==>  adr  x19, start  /* $x19=0x1f600000 ==> x19 := paddr (start) */ */
+        /* x19是调用这个函数之前，就设置好值了 ==>  adr  x19, start ， $x19=0x1f600000 ==> x19 := paddr (start)  */
         /* start符号的运行时的物理地址 存放在 x19 中 */
         lsr   x2, x19, #THIRD_SHIFT  /* Base address for 4K mapping ==> x2 = x19 >> 12 = 0x1f600 */
         /* Logical Shift Left ==> x2 = x2 << 12 = 0x1f600000  */
         lsl   x2, x2, #THIRD_SHIFT 
-        /* #define PT_MEM_L3 0xf7f /* nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1 */ ==> 属性值 */
+        /* #define PT_MEM_L3 0xf7f ==> nG=1 AF=1 SH=11 AP=01 NS=1 ATTR=111 T=1 P=1  ==> 属性值 */
         mov   x3, #PT_MEM_L3         /* x2 := Section map */
         /*  ORR <Xd>, <Xn>, <Xm> ==>  Xd = Xn | Xm;  */
         /* x2 = x2 | x3 ==>  0x1f600000 | 0xf7f = 0x1f600f7f ==> 这个就是页表entry里面要填充的内容 */
+        /* 也就是 XEN_VIRT_START 这个虚拟地址 经过这里配置好的页表后，最终映射到了物理地址 paddr(start),也就是0x1f600000这个物理地址上 */
         orr   x2, x2, x3
 
         /* ... map of vaddr(start) in boot_third */
         /* XZR 64 bits 31 Zero register */
         mov   x1, xzr
-        /* 将上面填充好的表项的内容(x2) 填充到 第三级页表的第0个entry 中去 */
+        /* 将上面填充好的表项的内容(x2) 填充到 第三级页表的第0个entry 中去（x1是entry的偏移地址） */
 1:      str   x2, [x4, x1]           /* Map vaddr(start) */
         /* #define PAGE_SIZE   (_AC(1,L) << PAGE_SHIFT) */
         add   x2, x2, #PAGE_SIZE     /* Next page */
         /* x1 + 8 ==> 就是 第三级页表的 下一个entry的偏移地址 ==> 因为一个entry 8个字节  */
         add   x1, x1, #8             /* Next slot */
+        /*  XEN_PT_LPAE_ENTRIES ==> 是  (1U << 9 ) ==> 512 */
+        /* cmp x1,#(512<<3) ==>  cmp x1,#4096 */
+        /* CMP <Xn|SP>, #<imm>{, <shift>} ==> is equivalent to ==> SUBS XZR, <Xn|SP>, #<imm>{, <shift>} */
+        /* 下面的代码的意思就是，x1 < 4096 就继续填充对应的entry，这里要做的是将这整页4K的所有entry都填充为相同的内容，也就是指向了同一页 */
         cmp   x1, #(XEN_PT_LPAE_ENTRIES<<3) /* 512 entries per page */
+        /* 512个entry都填充了后，就填充完了，继续往下走 */
+        /*
+                (gdb) x /10x 0x1f6c1000  ==> boot_third 运行时的物理地址就是0x1f6c1000  
+                0x1f6c1000:	0x1f600f7f	0x00000000	0x1f601f7f	0x00000000
+                0x1f6c1010:	0x1f602f7f	0x00000000	0x1f603f7f	0x00000000
+                0x1f6c1020:	0x1f604f7f	0x00000000
+        */
         b.lt  1b
 
         /*
@@ -693,8 +723,19 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
          * need an additional 1:1 mapping, the virtual mapping will
          * suffice.
          */
+        /* XEN_VIRT_START就是XEN代码段的起始链接地址 */
+        /* 下面是一条伪指令，qemu看实际的汇编指令，发现是用一条 ldr x0,0x1f600840 指令替换的，当然这条指令的 0x1f600840 是gdb加工后的结果 */
+        /* ldr x0,0x1f600840 ==> 真实的ldr指令就是加载指定的地址上的内存数据到目的寄存器 ==> 这里加载 0x1f600840 上的数据 到 x0  */
+        /* x0 = 0x20000200000  */
+        /* p /x $x0 ==> x0 = 0x20000200000 */
+        /* 
+            其实这里也就是满足了下面的伪指令的功能，下面的伪指令，ldr x0,=XEN_VIRT_START, 有个=号，就表示要加载这个符号的编译链接时的链接地址，
+            链接地址在这里也就是虚拟地址了，加载这个链接地址到x0，用做下面的虚拟地址 进行映射
+        */
         ldr   x0, =XEN_VIRT_START
+        /* x19 = 0x1f600000; x0 = 0x20000200000 */
         cmp   x19, x0
+        /* 跳到下面的 get_table_slot 处执行 */
         bne   1f
         ret
 1:
@@ -708,10 +749,24 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
          * XEN_ZEROETH_SLOT, then the 1:1 mapping will use its own set of
          * page-tables from the first level.
          */
+        /* .macro get_table_slot, slot, virt, lvl */
+        /* lvl=0 ===> ubfx  \slot, \virt, #39, #9  ==> slot = (virt >> 39) & ((1 << 9) - 1) */
+        /* lvl=1 ===> ubfx  \slot, \virt, #30, #9  ==> slot = (virt >> 30) & ((1 << 9) - 1) */
+        /* lvl=2 ===> ubfx  \slot, \virt, #21, #9  ==> slot = (virt >> 21) & ((1 << 9) - 1) */
+        /* lvl=3 ===> ubfx  \slot, \virt, #12, #9  ==> slot = (virt >> 12) & ((1 << 9) - 1) */
+        /* 这里的lvl为0 ==> x0 = (x19 >> 39) & ((1 << 9) - 1) */
+        /* 这里的lvl为0 ==> x0 = (0x1f600000 >> 39) & 0x1ff */
+        /* x0=0  */
         get_table_slot x0, x19, 0       /* x0 := zeroeth slot */
+        /*  XEN_ZEROETH_SLOT = 4 */
         cmp   x0, #XEN_ZEROETH_SLOT
         beq   1f
+        /* 走到这里了，上面代码不跳转到 1f去 */
+        /* x19=0x1f600000 */
+        /* create_table_entry 这个函数已经注释过了 */
+        /* 这里也就是要将 0x1f600000 单做一个虚拟地址来进行映射了，估计就是为了1:1映射 */
         create_table_entry boot_pgtable, boot_first_id, x19, 0, x0, x1, x2
+        /* 直接跳到了 下面的 link_from_first_id 这个标号处开始执行，会逐级映射好页表 */
         b     link_from_first_id
 
 1:
