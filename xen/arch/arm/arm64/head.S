@@ -319,7 +319,9 @@ real_start_efi:
         bl    check_cpu_mode
         bl    cpu_init
         bl    create_page_tables
+        /* 将boot_pgtable的物理地址加载到x0中 */
         load_paddr x0, boot_pgtable
+        /* 这里是像使能mmu了，进去看看 ==> 前面已经做了1:1映射了的 */
         bl    enable_mmu
 
         /* We are still in the 1:1 mapping. Jump to the runtime Virtual Address. */
