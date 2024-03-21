@@ -536,14 +536,10 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
  * Note that all parameters using registers should be distinct.
  */
  /* 
-<<<<<<< HEAD
-    从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要一级一级的填充页表entry,那么这里填充的就是第lvl级页表(ptbl)的某个entry 
-=======
     从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要逐级填充各级页表的对应的entry 
     ==> 那么这里就是通过lvl来指定要填充的是第几级页表，ptbl指向这个要被填充的页表基地址，
     ==> 然后通过虚拟地址virt来索引该级页表的对应的entry
     ==> 这个entry中要填充 下一级页表的物理基地址(tbl) 以及相关的页表属性 
->>>>>>> 页表创建注释
     通过virt + get_table_slot ==> 可以知道 要操作的是 第lvl级页表的entry的idx 
     这个entry里面要填充的内容：tbl的物理地址 + 对应的属性信息 ==> 存放在tmp3
     最后将上面的填充内容 写到 第lvl级页表(ptbl 指向这个第lvl级页表的数组的起始地址) 的某个entry(提取virt的某域段)
@@ -630,7 +626,8 @@ create_page_tables:
 
         /* x0 为要映射的虚拟地址  */
         /* 0 ==> 第0级页表 */
-        /* 
+        /* x1, x2, x3 ==> 为过程中要用到的中间寄存器 */
+                /* 
                 create_table_entry
                 从下面函数的实现分析来看 ==> 为映射virt这个虚拟地址，要逐级填充各级页表的对应的entry 
                 ==> 那么这里就是通过lvl来指定要填充的是第几级页表，ptbl指向这个要被填充的页表基地址，
