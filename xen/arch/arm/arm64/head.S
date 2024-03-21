@@ -816,6 +816,7 @@ link_from_second_id:
         create_table_entry boot_second_id, boot_third_id, x19, 2, x0, x1, x2
 link_from_third_id:
         create_mapping_entry boot_third_id, x19, x19, x0, x1, x2
+        /* 映射完毕，返回 */
         ret
 
 virtphys_clash:
