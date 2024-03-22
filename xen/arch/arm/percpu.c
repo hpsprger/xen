@@ -5,6 +5,29 @@
 #include <xen/mm.h>
 #include <xen/rcupdate.h>
 
+#if 0
+你看链接脚本中  __per_cpu_start  与 __per_cpu_data_end 的定义如下 
+也就是在 __per_cpu_start ~ __per_cpu_data_end 之间，存放了很多的段
+  .bss : {                     /* BSS */
+       __bss_start = .;
+       *(.bss.stack_aligned)
+       . = ALIGN(PAGE_SIZE);
+       *(.bss.page_aligned)
+       . = ALIGN(PAGE_SIZE);
+       __per_cpu_start = .;
+       *(.bss.percpu.page_aligned)
+       *(.bss.percpu)
+       . = ALIGN(SMP_CACHE_BYTES);
+       *(.bss.percpu.read_mostly)
+       . = ALIGN(SMP_CACHE_BYTES);
+       __per_cpu_data_end = .;
+       *(.bss .bss.*)
+       . = ALIGN(POINTER_ALIGN);
+       __bss_end = .;
+  } :text
+  _end = . ;
+#endif 
+
 unsigned long __per_cpu_offset[NR_CPUS];
 #define INVALID_PERCPU_AREA (-(long)__per_cpu_start)
 #define PERCPU_ORDER (get_order_from_bytes(__per_cpu_data_end-__per_cpu_start))
@@ -17,6 +40,7 @@ void  percpu_init_areas(void)
     /* 这个太大了，估计是这里配置的太大了，所以我刚开始qemu运行xen的时候，才感觉怎么XEN那么吃内存啊，修改下配置试试 */
     /* make menuconfig 中 我选中使用 QEMU aarch virt machine support ==> 选了这个平台后，发现NR_CPUS 还是128，所以必须要手动修改 (4) Maximum number of CPUs */
     for ( cpu = 1; cpu < NR_CPUS; cpu++ )
+        /* 这里就是给这个数组赋值一个 初始化值 */
         __per_cpu_offset[cpu] = INVALID_PERCPU_AREA;
 }
 
