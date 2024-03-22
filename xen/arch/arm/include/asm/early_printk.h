@@ -19,7 +19,7 @@
 /* #define FIXMAP_ADDR(n)  (FIXMAP_VIRT_START + (n) * PAGE_SIZE) */
 /* 
     FIXMAP_VIRT_START ==> 0x20000400000
-    #define FIXMAP_CONSOLE  0  /* The primary UART
+    #define FIXMAP_CONSOLE  0   ==>  The primary UART
     CONFIG_EARLY_UART_BASE_ADDRESS=0xff1a0000
     FIXMAP_ADDR(n) ==> 0x20000400000 + n * 4K
 
