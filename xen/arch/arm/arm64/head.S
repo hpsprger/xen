@@ -969,6 +969,7 @@ ENDPROC(remove_identity_mapping)
 setup_fixmap:
 #ifdef CONFIG_EARLY_PRINTK /* CONFIG_EARLY_PRINTK = y */
         /* Add UART to the fixmap table */
+        /* EARLY_UART_VIRTUAL_ADDRESS ==> 0x200FF5A0000 */
         ldr   x0, =EARLY_UART_VIRTUAL_ADDRESS
         create_mapping_entry xen_fixmap, x0, x23, x1, x2, x3, type=PT_DEV_L3
 #endif

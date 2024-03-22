@@ -121,15 +121,17 @@
 #define SLOT0(slot) (_AT(vaddr_t,slot) << SLOT0_ENTRY_BITS)  // (slot << 39)
 #define SLOT0_ENTRY_SIZE  SLOT0(1) // (1 << 39)  ==> 0x80 0000 0000 
 
-#define XEN_VIRT_START          (SLOT0(4) + _AT(vaddr_t, MB(2)))
+#define XEN_VIRT_START          (SLOT0(4) + _AT(vaddr_t, MB(2))) //==> 0x20000200000
 #endif
 
-#define XEN_VIRT_SIZE           _AT(vaddr_t, MB(2))
+#define XEN_VIRT_SIZE           _AT(vaddr_t, MB(2)) //==> 0x200000
 
-#define FIXMAP_VIRT_START       (XEN_VIRT_START + XEN_VIRT_SIZE)
-#define FIXMAP_VIRT_SIZE        _AT(vaddr_t, MB(2))
+#define FIXMAP_VIRT_START       (XEN_VIRT_START + XEN_VIRT_SIZE) //==> 0x20000200000 + 0x200000 ==> 0x20000400000
+#define FIXMAP_VIRT_SIZE        _AT(vaddr_t, MB(2)) //==> 0x200000
 
 #define FIXMAP_ADDR(n)          (FIXMAP_VIRT_START + (n) * PAGE_SIZE)
+                            /*  FIXMAP_VIRT_START + n * 4K            */
+                            /*  0x20000400000 + n * 4K                */
 
 #define BOOT_FDT_VIRT_START     (FIXMAP_VIRT_START + FIXMAP_VIRT_SIZE)
 #define BOOT_FDT_VIRT_SIZE      _AT(vaddr_t, MB(4))
