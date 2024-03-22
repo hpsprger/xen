@@ -345,8 +345,10 @@ primary_switched:
          */
         bl    remove_identity_mapping
         bl    setup_fixmap
-#ifdef CONFIG_EARLY_PRINTK
+#ifdef CONFIG_EARLY_PRINTK /* CONFIG_EARLY_PRINTK=y */
         /* Use a virtual address to access the UART. */
+        /* EARLY_UART_VIRTUAL_ADDRESS ==> 0x20000400000 */
+        /* x23 = 0x20000400000 */
         ldr   x23, =EARLY_UART_VIRTUAL_ADDRESS
 #endif
         bl    zero_bss
@@ -441,12 +443,19 @@ ENDPROC(check_cpu_mode)
  */
 zero_bss:
         /* Zero BSS only when requested */
+        /* Compare and Branch on Nonzero compares the value in a register with zero, and conditionally branches to a label at a PC-relative offset if the
+comparison is not equal */
+        /* 也就是x26寄存器里面的值 与 0进行比较，不为0 的话就跳转到 skip_bss去，也就是跳过bss段清零的工作 */
+        /* x26实际打印为0 ==> 就没有直接跳到 skip_bss 去执行了 */
         cbnz  x26, skip_bss
 
         PRINT("- Zero BSS -\r\n")
+        /* 加载 __bss_start 符号的链接地址，也就是这里的虚拟地址 到 x0 去，因为开启了MMU了，且将链接地址作为虚拟地址进行映射了 */
         ldr   x0, =__bss_start       /* x0 := vaddr(__bss_start) */
+        /* 加载 __bss_end 符号的链接地址，也就是这里的虚拟地址 到 x1 去，因为开启了MMU了，且将链接地址作为虚拟地址进行映射了 */
         ldr   x1, =__bss_end         /* x1 := vaddr(__bss_end)   */
 
+        /* 对 __bss_start - __bss_end 这段空间进行清零操作，直接写0，循环写，直到写完 */
 1:      str   xzr, [x0], #8
         cmp   x0, x1
         b.lo  1b
