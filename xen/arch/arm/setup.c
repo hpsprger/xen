@@ -1098,7 +1098,9 @@ void __init start_xen(unsigned long boot_phys_offset,
     struct domain *d;
     int rc, i;
 
-    dcache_line_bytes = read_dcache_line_bytes();
+    /* 通过读取 CTR_EL0寄存器 来知道 dcache line 的 大小 */
+    /* dcache_line_bytes = 0x40 ==> 64个字节 */
+    dcache_line_bytes = read_dcache_line_bytes(); 
 
     percpu_init_areas();
     set_processor_id(0); /* needed early, for smp_processor_id() */
