@@ -1075,6 +1075,20 @@ static bool __init is_dom0less_mode(void)
 size_t __read_mostly dcache_line_bytes;
 
 /* C entry point for boot CPU */
+/* 
+start_xen (boot_phys_offset=18446741875210584064, fdt_paddr=882900992) at arch/arm/setup.c:1080
+1080	{
+(gdb) p /x 18446741875210584064
+$14 = 0xfffffe001f400000
+(gdb) p /x 882900992 
+$15 = 0x34a00000
+
+你还可以研究下C语言参数的传递
+(gdb) p /x $x0 
+$19 = 0xfffffe001f400000  ==> boot_phys_offset
+(gdb) p /x $x1
+$20 = 0x34a00000  ==> fdt_paddr
+*/
 void __init start_xen(unsigned long boot_phys_offset,
                       unsigned long fdt_paddr)
 {

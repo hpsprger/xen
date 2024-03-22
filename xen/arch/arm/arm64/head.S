@@ -1016,14 +1016,38 @@ ENDPROC(setup_fixmap)
  * Clobbers x3
  */
 launch:
+        /*
+                struct init_info init_data =
+                {
+                .stack = cpu0_boot_stack, //cpu0_boot_stack是一个数组的地址
+                };
+
+                Xen stack for bringing up the first CPU. 
+                static unsigned char __initdata cpu0_boot_stack[STACK_SIZE]  __attribute__((__aligned__(STACK_SIZE)));
+                cpu0_boot_stack 看上面的定义，其实就是一个数组，用来作为栈空间了
+                STACK_SIZE ==> 32K 
+                这里x3 = 0x200002c4298
+        */
         ldr   x3, =init_data  /* 加载init_data符号的链接地址(这里就是虚拟地址) 到 x3 ==> x3=0x200002c4298 */
-        add   x3, x3, #INITINFO_stack /* Find the boot-time stack */
-        ldr   x3, [x3]
+        /*
+                INITINFO_stack为用汇编指令 .ascii 定义的一个宏
+                add  x3, x3, #INITINFO_stack  ==> x3中存放的是 init_data.stack 的地址  ==> x3 = 0x200002c4298
+        */
+        add   x3, x3, #INITINFO_stack /* Find the boot-time stack */ 
+        /* ldr这里就是将地址x3(就是上面init_data.stack这个变量的地址，也就是 &init_data.stack) 对应的内存中的数据加载到x3， */
+        /*  (gdb) p /x &cpu0_boot_stack = 0x20000310000 */
+        /* x3 = 0x20000310000 ==> 就拿到了cpu0_boot_stack的地址值了 */
+        ldr   x3, [x3] 
+        /* x3 = x3 +  STACK_SIZE(32K) = 0x20000318000 ==> 指向了栈顶部，也就是地址最大的地址，看来这个栈是递减的栈 */
         add   x3, x3, #STACK_SIZE     /* (which grows down from the top). */
+        /* x3 = x3 - CPUINFO_sizeof = 0x20000317ea0 ==> 为 CPUINFO_sizeof 留出了足够的空间了 */
         sub   x3, x3, #CPUINFO_sizeof /* Make room for CPU save record */
+        /* 将x3的值赋给sp ==> $sp = 0x20000317ea0 ==> 这样的话，栈空间就配置好了，就可以开始运行C语言了，因为C语言函数内部的局部变量是通过压栈的方式来实现的，函数调用也是通过压栈或栈空间存储的方式来实现的，所以一定是需要配置好栈后，C语言才能正常运行 */
         mov   sp, x3
 
         /* Jump to C world */
+        /* 这里就跳转到C语言的世界了，x2 是 start_xen 的地址 ==> 0x200002e1784 */
+        /* (gdb) p /x &start_xen ==> $13 = 0x200002e1784 */
         br    x2
 ENDPROC(launch)
 
