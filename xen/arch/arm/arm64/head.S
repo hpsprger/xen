@@ -612,6 +612,12 @@ ttbr0_el2 ==> |level0_entry0(4K or 512_entry)    ==> |level1_entry0(4K or 512_en
  *
  * Note that all parameters using registers should be distinct.
  */
+ /* PT_DEV_L3 这里默认是要填充 L3页表的entry */
+ /* 
+    virt ==> 待映射的虚拟地址 
+    phys ==> 映射的目的物理地址
+    ptbl ==> 指向要填充的页表(具体会去填充这个页表里面的某一个entry)
+  */
 .macro create_mapping_entry, ptbl, virt, phys, tmp1, tmp2, tmp3, type=PT_MEM_L3
         /* #define THIRD_MASK  ==> 0xfffffffffffff000 */
         /* and ==> 与操作 ==> phys & 0xfffffffffffff000  ==> 就是4K对齐后的地址 存放在tmp3 中 */
@@ -966,17 +972,25 @@ ENDPROC(remove_identity_mapping)
  *
  * Clobbers x0 - x3
  */
-setup_fixmap:
+setup_fixmap: /* 也就是完成 虚拟地址 0x20000400000 到物理地址0xff1a0000的映射关系填充，物理地址0xff1a0000为 UART的基地址  */
 #ifdef CONFIG_EARLY_PRINTK /* CONFIG_EARLY_PRINTK = y */
         /* Add UART to the fixmap table */
-        /* EARLY_UART_VIRTUAL_ADDRESS ==> 0x200FF5A0000 */
+        /* EARLY_UART_VIRTUAL_ADDRESS ==>  0x20000400000 */
         ldr   x0, =EARLY_UART_VIRTUAL_ADDRESS
+        /*  x23 - UART address ==> 0xff1a0000 ==> 在上层调用函数的函数头 已经写明了，x23是 0xff1a0000 ==> 0xff1a0000 是通过make menuconfig xxx 来进行配置的，看对应的文档 */
+        /* PT_DEV_L3 这里默认是要填充 L3页表的entry */
+        /* 将虚拟地址 x0(0x20000400000) 映射到物理地址 x23(0xff1a0000), 这个映射转换关系会被填充到 xen_fixmap的某一个entry中去 */
         create_mapping_entry xen_fixmap, x0, x23, x1, x2, x3, type=PT_DEV_L3
 #endif
         /* Map fixmap into boot_second */
+        /* FIXMAP_ADDR(0) ==> 0x20000400000 + n * 4K ==> 0x20000400000 */
+        /* x0 = 0x20000400000 */
         ldr   x0, =FIXMAP_ADDR(0)
+        /* 上面已经将x0映射到物理地址x23(0xff1a0000)的 第三级页表的entry 填充好了 */
+        /* 这里还要将虚拟地址x0(0x20000400000) 对应的映射关系，填充到 boot_second 指向的 2级页表 的某一个 entry中去 */
         create_table_entry boot_second, xen_fixmap, x0, 2, x1, x2, x3
         /* Ensure any page table updates made above have occurred. */
+        /* dsb 内存屏障来保证 */
         dsb   nshst
 
         ret
