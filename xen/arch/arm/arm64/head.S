@@ -322,6 +322,7 @@ real_start_efi:
         /* 将boot_pgtable的物理地址加载到x0中 */
         load_paddr x0, boot_pgtable
         /* 这里是像使能mmu了，进去看看 ==> 前面已经做了1:1映射了的 */
+        /* enable_mmu中将 boot_pgtable的物理地址写到 ttbr0_el2寄存器中，也就是 boot_pgtable 就是第0级页表了 */
         bl    enable_mmu
 
         /* We are still in the 1:1 mapping. Jump to the runtime Virtual Address. */
@@ -845,17 +846,42 @@ enable_mmu:
          * The state of the TLBs is unknown before turning on the MMU.
          * Flush them to avoid stale one.
          */
+        /* TLB Invalidate operation ==> alle2 指定刷掉EL2的所有的TLBs */
         tlbi  alle2                  /* Flush hypervisor TLBs */
+        /* Data Synchronization Barrier is a memory barrier that ensures the completion of memory accesses */
+        /* Data Memory Barrier is a memory barrier that ensures the ordering of observations of memory accesses ==> 一般就是指令发送出去了，但是响应还没有回来，就是指被观察到了 */
+        /* nsh ==> NSH ==> Non-shareable is the required shareability domain, reads and writes are the required access, both before and after the barrier
+instruction. Encoded as CRm = 0b0111. */
         dsb   nsh
 
         /* Write Xen's PT's paddr into TTBR0_EL2 */
+        /* x4 就是  boot_pgtable 这个符号的物理地址 */
         msr   TTBR0_EL2, x4
+        /* Instruction Synchronization Barrier flushes the pipeline in the PE and is a context synchronization event. */
+        /* 
+         上下文切换事件，这里为什么要用isb呢？因为接下来马上就要开启MMU了，MMU开启后，对各个地址空间的权限进行了控制，读写执行等权限可能发生变化，
+         但是CPU流水线中的指令这时很可能都已经过了MMU地址转换的阶段了，也就是如果不清空流水线的话，在开启MMU后，有些指令就是不会受MMU 控制的，所以这里
+         要先清空流水线后再开MMU，下面开启MMU前的几条指令没有访问等动作，是不影响的
+        */
         isb
 
         mrs   x0, SCTLR_EL2
+        /* #define SCTLR_Axx_ELx_M     BIT(0, UL) */
+        /* 
+            开启MMU 与 开启 D-cache ==> 为什么D-cache要到这个时候才开启，而i-cache却可以很早就可以开启了呢？？ ==>
+            因为d-cache 涉及到 读 写 操作，是要与MESI协议 广播 VIPT&VIVT MMU(权限 共享域 广播域等) SCP DSU 等单元来合作实现cache 一致性的，
+            所以这个时候MMU等都还没有配置好，d-cache 相关的单元还不能正常工作，是不适合开的
+            mmu关闭了，d-cache的使用一般也就关闭了
+            cache的属性在页表里配置的，不开MMU就没有办法得到cache属性，而离开了cache属性，硬件就不知道该怎么工作了，比如write back or write through，cache硬件是
+            不知道用户的决策的【这里是别人的说法，我决定合理，但是没有找到芯片具体的点来支持哈】
+            但是代码不一致，都是从PC上 从i-cache取指令，代码也都是只读的，不会修改，所以从一开始就开启 i-cache，硬件不需要做MESI协议规定的那些
+            复杂的操作，所以硬件这时是支持开启的
+        */
         orr   x0, x0, #SCTLR_Axx_ELx_M  /* Enable MMU */
         orr   x0, x0, #SCTLR_Axx_ELx_C  /* Enable D-cache */
+        /* Data Synchronization Barrier is a memory barrier that ensures the completion of memory accesses */
         dsb   sy                     /* Flush PTE writes and finish reads */
+        /* 通过 SCTLR_EL2 来开启MMU */
         msr   SCTLR_EL2, x0          /* now paging is enabled */
         isb                          /* Now, flush the icache */
         ret
