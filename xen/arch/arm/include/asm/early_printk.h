@@ -13,7 +13,7 @@
 #include <xen/page-size.h>
 #include <asm/fixmap.h>
 
-//#ifdef CONFIG_EARLY_PRINTK
+#ifdef CONFIG_EARLY_PRINTK
 
 /* need to add the uart address offset in page to the fixmap address */
 /* #define FIXMAP_ADDR(n)  (FIXMAP_VIRT_START + (n) * PAGE_SIZE) */
@@ -31,6 +31,6 @@
 #define EARLY_UART_VIRTUAL_ADDRESS \
     (FIXMAP_ADDR(FIXMAP_CONSOLE) + (CONFIG_EARLY_UART_BASE_ADDRESS & ~PAGE_MASK))
 
-//#endif /* !CONFIG_EARLY_PRINTK */
+#endif /* !CONFIG_EARLY_PRINTK */
 
 #endif
