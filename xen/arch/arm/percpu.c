@@ -9,12 +9,13 @@ unsigned long __per_cpu_offset[NR_CPUS];
 #define INVALID_PERCPU_AREA (-(long)__per_cpu_start)
 #define PERCPU_ORDER (get_order_from_bytes(__per_cpu_data_end-__per_cpu_start))
 
-void __init percpu_init_areas(void)
+//void __init percpu_init_areas(void)
+void  percpu_init_areas(void)
 {
     unsigned int cpu;
     /* NR_CPUS ==> 看 config NR_CPUS 的描述 ==> ARM & qemu 应该要配置为4才对 ==> 目前.config中看到的是128个核 */
     /* 这个太大了，估计是这里配置的太大了，所以我刚开始qemu运行xen的时候，才感觉怎么XEN那么吃内存啊，修改下配置试试 */
-    /* make menuconfig 中 我选中使用 QEMU aarch virt machine support ==> NR_CPUS 就是 4了 */
+    /* make menuconfig 中 我选中使用 QEMU aarch virt machine support ==> 选了这个平台后，发现NR_CPUS 还是128，所以必须要手动修改 (4) Maximum number of CPUs */
     for ( cpu = 1; cpu < NR_CPUS; cpu++ )
         __per_cpu_offset[cpu] = INVALID_PERCPU_AREA;
 }
