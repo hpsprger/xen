@@ -301,9 +301,9 @@ real_start_efi:
         mov   x21, x0                /* x21 := DTB, physical address  */
 
         /* Find out where we are */
-        ldr   x0, =start     /* qemu gdb 打印出来的值是:x0=0x20000200000 ==> cat xen-syms.map ==> 0x20000200000 T start ==>  参考文档<0:【vygd】head.s中start标号值的分析 & “Find out where we are”源码分析>*/
-        adr   x19, start     /* $x19=0x1f600000 ==> x19 := paddr (start) */
-        sub   x20, x19, x0   /* $x20 = 0xfffffe001f400000 ==> x20 := phys-offset   */
+        ldr   x0, =start    /* ldr xxx,=start ==> 表示ldr要将start符号的链接地址(这个链接地址以后要用作虚拟地址，并会映射好的)加载到x0  */ /* qemu gdb 打印出来的值是:x0=0x20000200000 ==> cat xen-syms.map ==> 0x20000200000 T start ==>  参考文档<0:【vygd】head.s中start标号值的分析 & “Find out where we are”源码分析>*/
+        adr   x19, start     /*adr xxx,start ==> 表示adr要将start符号的运行时地址加载到x19中 ==> 这是还没有开启MMU，所以这个运行时地址其实就是start运行时所在的物理地址，$x19=0x1f600000 ==> x19 := paddr (start) */
+        sub   x20, x19, x0   /* start运行时的物理地址 减去 start的链接地址(后面用作虚拟地址) = 这个偏移值就是物理地址与链接地址(虚拟地址)之间转换时用到的偏移值  ==> $x20 = 0xfffffe001f400000 ==> x20 := phys-offset   */
 
         /* Using the DTB in the .dtb section? */
 .ifnes CONFIG_DTB_FILE,""
@@ -354,9 +354,9 @@ primary_switched:
         bl    zero_bss
         PRINT("- Ready -\r\n")
         /* Setup the arguments for start_xen and jump to C world */
-        mov   x0, x20                /* x0 := Physical offset */
-        mov   x1, x21                /* x1 := paddr(FDT) */
-        ldr   x2, =start_xen
+        mov   x0, x20                /* x0 := Physical offset ==> 前面已经算好了的 ，参考前面的 “Find out where we are”的注释 ==> $x20 = 0xfffffe001f400000 ==> x20 := phys-offset  */
+        mov   x1, x21                /* x1 := paddr(FDT) ==> x21 = 0x34a00000 ==> FDT所以的物理地址 */
+        ldr   x2, =start_xen  /* x2=0x200002e1784 ==> ldr xxx,=yyy ==> 表示ldr要将符号start_xen的链接地址加载到x2，因为开启MMU后，链接地址已经作为虚拟地址映射好了，所以这里x2存放的就是start_xen所以的虚拟地址了 */
         b     launch
 ENDPROC(real_start)
 
@@ -1016,7 +1016,7 @@ ENDPROC(setup_fixmap)
  * Clobbers x3
  */
 launch:
-        ldr   x3, =init_data
+        ldr   x3, =init_data  /* 加载init_data符号的链接地址(这里就是虚拟地址) 到 x3 ==> x3=0x200002c4298 */
         add   x3, x3, #INITINFO_stack /* Find the boot-time stack */
         ldr   x3, [x3]
         add   x3, x3, #STACK_SIZE     /* (which grows down from the top). */

@@ -52,6 +52,30 @@ void __dummy__(void)
    OFFSET(VCPU_arch_saved_context, struct vcpu, arch.saved_context);
 
    BLANK();
+/* 
+#define offsetof(a,b) __builtin_offsetof(a,b)
+
+
+
+   #define OFFSET(_sym, _str, _mem)                                                      
+   OFFSET(INITINFO_stack, struct init_info, stack) ==>  DEFINE(_sym, offsetof(_str, _mem)); 
+                                                        DEFINE(INITINFO_stack, offsetof(struct init_info, stack))
+                                                        DEFINE(INITINFO_stack, __builtin_offsetof(struct init_info, stack)）
+
+//#define DEFINE(_sym, _val)                                                 \
+//    asm volatile ("\n.ascii\"==>#define " #_sym " %0 /* " #_val " */<==\"" \
+//                  : : "i" (_val) )
+
+__builtin_offsetof 是一个 GCC 编译器内建函数，用于计算结构体（struct）或联合体（union）中某个成员相对于其所在结构体或联合体开始地址的偏移量。
+
+
+*/
+
+#define DEFINE(_sym, _val)                                                 \
+    asm volatile ("\n.ascii\"==>#define " #_sym " %0 /* " #_val " */<==\"" \
+                  : : "i" (_val) )
+
+
    OFFSET(INITINFO_stack, struct init_info, stack);
 
    BLANK();
