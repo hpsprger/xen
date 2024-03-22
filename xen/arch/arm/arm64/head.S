@@ -326,7 +326,15 @@ real_start_efi:
         bl    enable_mmu
 
         /* We are still in the 1:1 mapping. Jump to the runtime Virtual Address. */
+        /* 加载primary_switched这个符号的链接地址到x0 ==> 前面页表映射时已经将 XEN_VIRT_START 这个链接地址 作为虚拟地址 进行映射了，至少4K空间都已经映射了 */
+        /* 所以这里就开始使用XEN 链接脚本里面指定的链接地址了，用链接地址作为虚拟地址来使用了，这样的话，我们直接加载xen 编译时产生的符号表，就可以通过gdb 加载符号表 来进行调试了 */
+        /* x0 = 0x200002001ac */
         ldr   x0, =primary_switched
+        /* 开启MMU后，CPU已经开始使用虚拟地址了，且 primary_switched 也已经在前面映射好了的，链接地址作为虚拟地址，已经映射好了的 */
+        /* 开启MMU后，CPU执行执行时，MMU翻译用的是恒等映射区间，所以CPU 在开启MMU前后的代码上 是无感的 顺序往下执行的 */
+        /* CPU执行到这里，就跳到 primary_switched处开始执行了， primary_switched 的链接地址 已经 作为 虚拟地址 在前面映射好了 */
+        /* 所以在下面可以直接跳过去执行，用对应的虚拟地址执行了，且这时MMU翻译就不在使用恒等映射区间了，而是用上面创建好的虚拟地址页表进行转换了 */
+        /* 所以跳过去后，就可以把恒等映射区对应的页表删除了！！！如下面的 remove_identity_mapping */
         br    x0
 primary_switched:
         /*
@@ -959,7 +967,7 @@ ENDPROC(remove_identity_mapping)
  * Clobbers x0 - x3
  */
 setup_fixmap:
-#ifdef CONFIG_EARLY_PRINTK
+#ifdef CONFIG_EARLY_PRINTK /* CONFIG_EARLY_PRINTK = y */
         /* Add UART to the fixmap table */
         ldr   x0, =EARLY_UART_VIRTUAL_ADDRESS
         create_mapping_entry xen_fixmap, x0, x23, x1, x2, x3, type=PT_DEV_L3
