@@ -125,6 +125,7 @@ static __inline__ void list_add_rcu(struct list_head *new, struct list_head *hea
  * Insert a new entry before the specified head.
  * This is useful for implementing queues.
  */
+/*  pre2 <--> pre1 <--> new <---> head ==> 是这样的一个添加到尾部的过程，这样的话插入一个节点就是O(1)的时间复杂度  */
 static __inline__ void list_add_tail_rcu(struct list_head *new, struct list_head *head)
 {
 	__list_add_rcu(new, head->prev, head);

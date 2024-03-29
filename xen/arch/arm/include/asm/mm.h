@@ -272,11 +272,18 @@ static inline void __iomem *ioremap_wc(paddr_t start, size_t len)
 /* Page-align address and convert to frame number format */
 #define paddr_to_pfn_aligned(paddr)    paddr_to_pfn(PAGE_ALIGN(paddr))
 
+/* maddr ==> L2 的 物理地址 ==> 这个函数的作用就是将L2的VA 通过AT指令让MMU转换为 L2的PA */
 static inline paddr_t __virt_to_maddr(vaddr_t va)
 {
-    uint64_t par = va_to_par(va);
+    uint64_t par = va_to_par(va); /* 通过MMU，将EL2的VA转换为EL2的PA(par) */
+    /* PADDR_MASK ==> 0~39bit 全 1 */
+    /* PAGE_MASK ==>  0~11bit 全 0 ==> 取反后，就是0~11bit 全 1，其他的bit全0 */
+    /* (par & PADDR_MASK & PAGE_MASK) | (va & ~PAGE_MASK) ==> 就是物理页框基地址 + 4K页偏移 ==> 得到最终的物理地址 */
+    /* 没明白为啥还要像下面这样多此一举呢？？MMU不是会自动做下面的步骤吗？？？？ */
     return (par & PADDR_MASK & PAGE_MASK) | (va & ~PAGE_MASK);
 }
+
+/* 这个宏就是将L2的VA 通过AT指令让MMU转换为 L2的PA */
 #define virt_to_maddr(va)   __virt_to_maddr((vaddr_t)(va))
 
 #ifdef CONFIG_ARM_32

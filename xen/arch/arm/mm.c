@@ -499,6 +499,9 @@ static void clear_table(void *table)
 
 /* Boot-time pagetable setup.
  * Changes here may need matching changes in head.S */
+/* 
+   boot_phys_offset就是 Physical offset ==> 这个偏移值就是物理地址与链接地址(虚拟地址)之间转换时用到的偏移值
+*/
 void __init setup_pagetables(unsigned long boot_phys_offset)
 {
     uint64_t ttbr;

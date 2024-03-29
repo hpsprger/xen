@@ -452,6 +452,8 @@ mfn_t __init alloc_boot_pages(unsigned long nr_pfns, unsigned long pfn_align)
  */
 
 #define MEMZONE_XEN 0
+/* CONFIG_ARM_64=y ==> PADDR_BITS ==> 48 */
+/* NR_ZONES = 48 - 12 + 1 = 37 */
 #define NR_ZONES    (PADDR_BITS - PAGE_SHIFT + 1)
 
 #define bits_to_zone(b) (((b) < (PAGE_SHIFT + 1)) ? 1U : ((b) - PAGE_SHIFT))
@@ -2429,7 +2431,7 @@ struct page_info *alloc_domheap_pages(
     struct domain *d, unsigned int order, unsigned int memflags)
 {
     struct page_info *pg = NULL;
-    unsigned int bits = memflags >> _MEMF_bits, zone_hi = NR_ZONES - 1;
+    unsigned int bits = memflags >> _MEMF_bits, zone_hi = NR_ZONES - 1; /* zone_hi = NR_ZONES - 1 = 37 - 1 = 36 */
     unsigned int dma_zone;
 
     ASSERT_ALLOC_CONTEXT();

@@ -49,7 +49,7 @@ static inline void invalidate_icache_local(void)
 static inline uint64_t __va_to_par(vaddr_t va)
 {
     uint64_t par, tmp = READ_SYSREG64(PAR_EL1);
-
+    /* AT指令就是地址转换指令，让MMU进行PTW后，将VA转换为PA，PA存放在PAR_EL1中 */
     asm volatile ("at s1e2r, %0;" : : "r" (va));
     isb();
     par = READ_SYSREG64(PAR_EL1);

@@ -1103,12 +1103,17 @@ void __init start_xen(unsigned long boot_phys_offset,
     dcache_line_bytes = read_dcache_line_bytes(); 
 
     percpu_init_areas();
+    /* 1.配置 TPIDR_EL2寄存器 ==> EL2 Software Thread ID Register , 
+                             ==> Provides a location where software executing at EL2 can store thread identifying information, for OS management purposes*/
     set_processor_id(0); /* needed early, for smp_processor_id() */
 
+    /* 虚拟地址空间添加到链表 virtual_region_list 中，形成链式管理 */
     setup_virtual_regions(NULL, NULL);
     /* Initialize traps early allow us to get backtrace when an error occurred */
+    /* 通过配置EL2的各个寄存器来设置traps的相关配置信息 */
     init_traps();
 
+    /* boot_phys_offset就是x0 ==> x0 := Physical offset ==> 这个偏移值就是物理地址与链接地址(虚拟地址)之间转换时用到的偏移值 */
     setup_pagetables(boot_phys_offset);
 
     smp_clear_cpu_maps();

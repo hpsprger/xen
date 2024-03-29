@@ -354,7 +354,7 @@ primary_switched:
         bl    zero_bss
         PRINT("- Ready -\r\n")
         /* Setup the arguments for start_xen and jump to C world */
-        mov   x0, x20                /* x0 := Physical offset ==> 前面已经算好了的 ，参考前面的 “Find out where we are”的注释 ==> $x20 = 0xfffffe001f400000 ==> x20 := phys-offset  */
+        mov   x0, x20                /* x0 := Physical offset ==> 这个偏移值就是物理地址与链接地址(虚拟地址)之间转换时用到的偏移值， 前面已经算好了的 ，参考前面的 “Find out where we are”的注释 ==> $x20 = 0xfffffe001f400000 ==> x20 := phys-offset  */
         mov   x1, x21                /* x1 := paddr(FDT) ==> x21 = 0x34a00000 ==> FDT所以的物理地址 */
         ldr   x2, =start_xen  /* x2=0x200002e1784 ==> ldr xxx,=yyy ==> 表示ldr要将符号start_xen的链接地址加载到x2，因为开启MMU后，链接地址已经作为虚拟地址映射好了，所以这里x2存放的就是start_xen所以的虚拟地址了 */
         b     launch

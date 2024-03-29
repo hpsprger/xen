@@ -126,13 +126,23 @@ void init_traps(void)
      * Setup Hyp vector base. Note they might get updated with the
      * branch predictor hardening.
      */
+    /*
+      VBAR_EL2 ==> Vector Base Address Register (EL2) 
+                   Holds the vector base address for any exception that is taken to EL2
+      EL2下的异常向量表的基地址 ==> entry.S中定义好了这个向量表
+    */
     WRITE_SYSREG((vaddr_t)hyp_traps_vector, VBAR_EL2);
 
     /* Trap Debug and Performance Monitor accesses */
+    /* 
+        MDCR_EL2 ==> Monitor Debug Configuration Register (EL2)
+        Provides EL2 configuration options for self-hosted debug and the Performance Monitors Extension
+     */
     WRITE_SYSREG(HDCR_TDRA|HDCR_TDOSA|HDCR_TDA|HDCR_TPM|HDCR_TPMCR,
                  MDCR_EL2);
 
     /* Trap CP15 c15 used for implementation defined registers */
+    /* HSTR_EL2 ==> Hypervisor System Trap Register */
     WRITE_SYSREG(HSTR_T(15), HSTR_EL2);
 
     /* Trap all coprocessor registers (0-13) except cp10 and
@@ -143,6 +153,15 @@ void init_traps(void)
      * On ARM64 the TCPx bits which we set here (0..9,12,13) are all
      * RES1, i.e. they would trap whether we did this write or not.
      */
+    /* 
+        CPTR_EL2 ==> Architectural Feature Trap Register (EL2) 
+                     Controls trapping to EL2 of accesses to CPACR, CPACR_EL1, trace, Activity Monitor, SME, 
+                     Streaming SVE, SVE, and Advanced SIMD and floating-point functionality.
+        TCPAC, bit [31] ==> In AArch64 state, traps accesses to CPACR_EL1 from EL1 to EL2, 
+                            when EL2 is enabled in the current Security state. 
+                            The exception is reported using ESR_ELx.EC value 0x18.
+        其他的bit也是类似的，在EL1上对某些寄存器的访问 会被捕获 到 EL2去，陷入EL2后，在ESR_ELx.EC中报告异常值
+    */
     WRITE_SYSREG((HCPTR_CP_MASK & ~(HCPTR_CP(10) | HCPTR_CP(11))) |
                  HCPTR_TTA | HCPTR_TAM,
                  CPTR_EL2);
@@ -151,6 +170,14 @@ void init_traps(void)
      * Configure HCR_EL2 with the bare minimum to run Xen until a guest
      * is scheduled. {A,I,F}MO bits are set to allow EL2 receiving
      * interrupts.
+     */
+    /* 
+        AMO ==>  Physical SError interrupt routing 
+                 0b1 When executing at any Exception level, and EL2 is enabled in the current Security state
+                     Physical SError interrupts are taken to EL2, unless they are routed to EL3.
+                     When the value of HCR_EL2.TGE is 0, then virtual SError interrupts are enabled.
+        IMO ==> Physical IRQ Routing.原理同上；
+        FMO ==> Physical FIQ Routing.原理同上；
      */
     WRITE_SYSREG(HCR_AMO | HCR_FMO | HCR_IMO, HCR_EL2);
     isb();

@@ -260,9 +260,10 @@ extern void dump_hyp_walk(vaddr_t addr);
 /* Print a walk of the p2m for a domain for a physical address. */
 extern void dump_p2m_lookup(struct domain *d, paddr_t addr);
 
+/* 通过MMU，将EL2的VA转换为EL2的PA(par) */
 static inline uint64_t va_to_par(vaddr_t va)
 {
-    uint64_t par = __va_to_par(va);
+    uint64_t par = __va_to_par(va); /* 通过MMU，将EL2的VA转换为EL2的PA(par) */
     /* It is not OK to call this with an invalid VA */
     if ( par & PAR_F )
     {

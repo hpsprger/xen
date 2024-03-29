@@ -27,7 +27,8 @@ static DEFINE_PAGE_TABLE(xen_third_id);
  */
 static void __init prepare_boot_identity_mapping(void)
 {
-    paddr_t id_addr = virt_to_maddr(_start);
+    /* _start 是 xen.lds.S中地址空间规划的起始地址(链接地址，后面也就是做为虚拟地址了) */
+    paddr_t id_addr = virt_to_maddr(_start); /* 将L2的VA(_start)转换为L2的PA */
     lpae_t pte;
     DECLARE_OFFSETS(id_offsets, id_addr);
 

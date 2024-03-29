@@ -60,6 +60,7 @@ void register_virtual_region(struct virtual_region *r)
 {
     ASSERT(!local_irq_is_enabled());
 
+    /* virtual_region_list 是一个虚拟地址区间的链表 */
     list_add_tail_rcu(&r->list, &virtual_region_list);
 }
 
